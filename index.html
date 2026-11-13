@@ -51,7 +51,7 @@
 
       <!-- Shown before the first move -->
       <div class="overlay overlay-start hidden" id="start-screen">
-        <p>Press an arrow key to start</p>
+        <p id="start-hint">Press an arrow key to start</p>
       </div>
 
       <!-- Shown after a crash -->
@@ -59,12 +59,12 @@
         <h2>Game Over</h2>
         <p class="final-score">Score: <span id="final-score">0</span></p>
         <p class="save-status" id="save-status"></p>
-        <p class="restart">Press space to play again</p>
+        <p class="restart" id="restart-hint">Press space to play again</p>
         <button type="button" class="link-button" id="home-button">Back to home</button>
       </div>
     </div>
 
-    <footer class="game-help">Use the arrow keys to move</footer>
+    <footer class="game-help" id="help-text">Use the arrow keys to move</footer>
   </main>
 
   <!-- Supabase library (talks to the database) -->

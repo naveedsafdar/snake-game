@@ -26,6 +26,15 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overscroll-behavior: none;      /* no pull-to-refresh while swiping */
+  touch-action: manipulation;     /* no double-tap zoom when tapping to restart */
+  -webkit-user-select: none;      /* swipes don't select text */
+  user-select: none;
+}
+
+input {
+  -webkit-user-select: text;      /* but the name box can still be edited */
+  user-select: text;
 }
 
 .game {
@@ -97,6 +106,7 @@ body {
 }
 
 canvas {
+  touch-action: none;             /* swiping on the board never scrolls or zooms */
   display: block;
   max-width: calc(100vw - 38px);  /* shrink to fit on small screens */
   height: auto;
@@ -349,4 +359,63 @@ canvas {
 .game-help {
   color: var(--muted);
   font-size: 14px;
+}
+
+/* ----- Phones: tighter spacing so the home screen fits the smaller board ----- */
+@media (max-width: 440px) {
+  .game {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .game-title {
+    font-size: 24px;
+  }
+
+  .header-info {
+    gap: 10px;
+  }
+
+  .player-label {
+    font-size: 14px;
+  }
+
+  .score {
+    font-size: 17px;
+  }
+
+  .overlay-home {
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .name-form label {
+    margin-bottom: 6px;
+  }
+
+  .form-message {
+    min-height: 0;
+  }
+
+  .leaderboard h2 {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .leaderboard table {
+    font-size: 13px;
+  }
+
+  .leaderboard th,
+  .leaderboard td {
+    padding: 3px 4px;
+  }
+
+  .leaderboard td:nth-child(2) {
+    max-width: 100px;
+  }
+
+  .overlay-game-over h2 {
+    font-size: 30px;
+  }
 }

@@ -6,10 +6,10 @@ A classic Snake game in plain HTML, CSS and JavaScript. No install or build step
 
 Open `index.html` in any web browser.
 
-- **Arrow keys** move the snake (the first key press starts the game)
+- **Arrow keys** (or **swipe** on a phone) move the snake; the first move starts the game
 - Eat the food (🍎 🍊 🍔 🍕 …) to grow and score points
 - Hitting a wall or yourself ends the game
-- **Space** restarts after game over
+- **Space** (or **tap** on a phone) plays again after game over
 
 ## Leaderboard
 

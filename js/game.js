@@ -239,7 +239,10 @@ function showHome() {
   gameOverScreen.classList.add("hidden");
 
   nameInput.value = player.name || loadSavedName();
-  nameInput.focus();
+
+  // Put the cursor in the name box, except on phones, where that
+  // would pop up the keyboard and cover the leaderboard
+  if (!window.matchMedia("(pointer: coarse)").matches) nameInput.focus();
   loadLeaderboard();
 }
 
@@ -631,21 +634,93 @@ document.addEventListener("keydown", event => {
   if (!newDir) return;
   event.preventDefault();     // stop arrow keys from scrolling the page
 
-  if (state === "crashing" || state === "over") return;
+  turn(newDir);
+});
+
+// Change direction (used by both the keyboard and swipes)
+function turn(newDir) {
+  if (state !== "ready" && state !== "playing") return;
 
   // Don't allow reversing straight back into the body
   if (newDir.x === -direction.x && newDir.y === -direction.y) return;
 
   nextDir = newDir;
 
-  // The first arrow key starts the game
+  // The first move starts the game
   if (state === "ready") {
     state = "playing";
     startScreen.classList.add("hidden");
     lastStepTime = performance.now();
   }
+}
+
+
+/* =========================================================
+   Touch controls (phones and tablets)
+   Swipe anywhere to turn; tap to play again after game over.
+   ========================================================= */
+
+const SWIPE_MIN = 24;   // finger must move this many pixels to count as a swipe
+let touchStart = null;  // where the current touch started (or last turned)
+let touchSwiped = false;
+
+// Touches on buttons and text boxes work normally (e.g. "Back to home", the name box)
+function isControl(target) {
+  return target.closest("button, input, form, a") !== null;
+}
+
+document.addEventListener("touchstart", event => {
+  if (state === "home" || isControl(event.target)) {
+    touchStart = null;
+    return;
+  }
+  const t = event.touches[0];
+  touchStart = { x: t.clientX, y: t.clientY };
+  touchSwiped = false;
+}, { passive: true });
+
+document.addEventListener("touchmove", event => {
+  if (!touchStart) return;
+
+  // Stop the page from scrolling or pulling to refresh while playing
+  event.preventDefault();
+
+  const t = event.touches[0];
+  const dx = t.clientX - touchStart.x;
+  const dy = t.clientY - touchStart.y;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN) return;
+
+  // Turn the way the finger moved the most
+  if (Math.abs(dx) > Math.abs(dy)) {
+    turn(dx > 0 ? KEYS.ArrowRight : KEYS.ArrowLeft);
+  } else {
+    turn(dy > 0 ? KEYS.ArrowDown : KEYS.ArrowUp);
+  }
+
+  // Measure the next swipe from here, so one long finger move
+  // can make several turns (e.g. right then down)
+  touchStart = { x: t.clientX, y: t.clientY };
+  touchSwiped = true;
+}, { passive: false });
+
+document.addEventListener("touchend", event => {
+  if (!touchStart) return;
+
+  // A tap (no swipe) after game over plays again, like the space bar
+  if (!touchSwiped && state === "over") {
+    event.preventDefault();   // don't also send a "click"
+    resetGame();
+  }
+  touchStart = null;
 });
 
+
+// On touch screens, swap the keyboard hints for touch hints
+if (window.matchMedia("(pointer: coarse)").matches) {
+  document.getElementById("start-hint").textContent = "Swipe to start";
+  document.getElementById("restart-hint").textContent = "Tap to play again";
+  document.getElementById("help-text").textContent = "Swipe on the screen to move";
+}
 
 // ----- Start on the home screen -----
 showHome();
