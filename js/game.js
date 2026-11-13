@@ -275,7 +275,7 @@ nameForm.addEventListener("submit", async event => {
 
 homeButton.addEventListener("click", showHome);
 
-// Fill in the Top 5 table and the stats line
+// Fill in the Top 5 scores table and the stats line
 async function loadLeaderboard() {
   if (!Database.isReady()) {
     showLeaderboardMessage("Leaderboard isn't connected yet.");
@@ -295,7 +295,7 @@ async function loadLeaderboard() {
     showLeaderboardMessage("No scores yet. Be the first!");
   } else {
     leaderboardBody.replaceChildren(...rows.map((row, i) =>
-      tableRow([i + 1, row.name, row.best_score, formatDate(row.best_score_at)])
+      tableRow([i + 1, row.name, row.score, formatDate(row.played_at)])
     ));
   }
 

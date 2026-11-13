@@ -16,14 +16,12 @@ create table if not exists public.players (
   id             bigint generated always as identity primary key,
   name           text not null,
   name_key       text generated always as (lower(trim(name))) stored unique,
-  best_score     integer not null default 0,
-  best_score_at  timestamptz,                         -- when the best score was set
-  games_played   integer not null default 0,
   first_seen_at  timestamptz not null default now(),  -- when they first entered their name
   last_played_at timestamptz not null default now()
 );
 
 -- One row per finished game. The date is filled in automatically.
+-- This is the only place scores are kept.
 create table if not exists public.games (
   id         bigint generated always as identity primary key,
   player_id  bigint not null references public.players (id) on delete cascade,
@@ -31,8 +29,35 @@ create table if not exists public.games (
   played_at  timestamptz not null default now()
 );
 
-create index if not exists players_leaderboard_idx
-  on public.players (best_score desc, best_score_at asc);
+-- Fast leaderboard (highest scores first)
+create index if not exists games_leaderboard_idx
+  on public.games (score desc, played_at asc);
+
+-- Fast "is this a new personal best?" check
+create index if not exists games_player_score_idx
+  on public.games (player_id, score desc);
+
+
+-- ---------------------------------------------------------
+-- Clean up older versions of this file
+-- Earlier versions kept each player's best score and game
+-- count on the players table, with a trigger to keep them in
+-- sync. Scores now live only in the games table, so those
+-- are removed. (Does nothing on a fresh database.)
+-- ---------------------------------------------------------
+
+drop trigger  if exists games_changed on public.games;
+drop function if exists public.games_changed();
+drop function if exists public.refresh_player_stats(bigint);
+drop index    if exists public.players_leaderboard_idx;
+alter table public.players
+  drop column if exists best_score,
+  drop column if exists best_score_at,
+  drop column if exists games_played;
+
+-- The leaderboard now returns different columns, which
+-- "create or replace" can't change, so remove the old one first.
+drop function if exists public.get_leaderboard(integer);
 
 
 -- ---------------------------------------------------------
@@ -73,9 +98,9 @@ begin
 end;
 $$;
 
--- Save a finished game. The player's best score and game count are
--- updated automatically by the trigger further down.
--- Returns true when this game is a new personal best.
+-- Save a finished game.
+-- Returns true when this game is a new personal best
+-- (a player's first game always counts as one).
 create or replace function public.submit_score(p_player_id bigint, p_score integer)
 returns boolean
 language plpgsql
@@ -89,14 +114,16 @@ begin
     raise exception 'Invalid score';
   end if;
 
-  -- Lock the player row so two games finishing at once can't clash
-  select best_score into v_old_best
-  from players where id = p_player_id
-  for update;
-
+  -- Lock the player row so two games finishing at once can't
+  -- both claim a new personal best
+  perform 1 from players where id = p_player_id for update;
   if not found then
     raise exception 'Unknown player';
   end if;
+
+  -- Best score before this game (-1 when they have no games yet)
+  select coalesce(max(score), -1) into v_old_best
+  from games where player_id = p_player_id;
 
   insert into games (player_id, score) values (p_player_id, p_score);
   update players set last_played_at = now() where id = p_player_id;
@@ -105,18 +132,19 @@ begin
 end;
 $$;
 
--- Top players by best score (earliest to reach a score wins a tie).
-create or replace function public.get_leaderboard(p_limit integer default 5)
-returns table (name text, best_score integer, best_score_at timestamptz)
+-- Top single games. A player can appear more than once.
+-- Ties go to whoever got the score first.
+create function public.get_leaderboard(p_limit integer default 5)
+returns table (name text, score integer, played_at timestamptz)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select name, best_score, best_score_at
-  from players
-  where games_played > 0
-  order by best_score desc, best_score_at asc
+  select p.name, g.score, g.played_at
+  from games g
+  join players p on p.id = g.player_id
+  order by g.score desc, g.played_at asc
   limit least(greatest(p_limit, 1), 50);
 $$;
 
@@ -133,66 +161,6 @@ as $$
     'total_players', (select count(*) from players)
   );
 $$;
-
-
--- ---------------------------------------------------------
--- Keep each player's totals in sync with the games table
---
--- The games table is the source of truth. Whenever a game is
--- added, edited or deleted (by the game OR by hand in the
--- Supabase dashboard), the player's best_score, best_score_at
--- and games_played are recalculated from their games.
--- ---------------------------------------------------------
-
--- Recalculate one player's totals from their games
-create or replace function public.refresh_player_stats(p_player_id bigint)
-returns void
-language sql
-security definer
-set search_path = public
-as $$
-  update players set
-    games_played  = (select count(*) from games where player_id = p_player_id),
-    best_score    = coalesce((select max(score) from games where player_id = p_player_id), 0),
-    -- date of the first game that reached the best score
-    best_score_at = (select played_at from games
-                     where player_id = p_player_id
-                     order by score desc, played_at asc
-                     limit 1)
-  where id = p_player_id;
-$$;
-
--- Runs after every change to the games table
-create or replace function public.games_changed()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if tg_op = 'DELETE' then
-    perform refresh_player_stats(old.player_id);
-  else
-    perform refresh_player_stats(new.player_id);
-    -- a game moved to a different player: fix the old player too
-    if tg_op = 'UPDATE' and old.player_id <> new.player_id then
-      perform refresh_player_stats(old.player_id);
-    end if;
-  end if;
-  return null;
-end;
-$$;
-
-create or replace trigger games_changed
-  after insert or update or delete on public.games
-  for each row execute function public.games_changed();
-
--- Bring every player up to date now (fixes any earlier hand edits)
-select public.refresh_player_stats(id) from public.players;
-
--- These two are internal: the web page must not be able to call them.
-revoke all on function public.refresh_player_stats(bigint) from public, anon, authenticated;
-revoke all on function public.games_changed()              from public, anon, authenticated;
 
 
 -- Only these functions are callable from the web page.

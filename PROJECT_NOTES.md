@@ -17,6 +17,7 @@ Supabase database and shown as a live leaderboard.
 | `3090e49` Player names, leaderboard and stats | New home screen where players enter a name. Finished games are saved to Supabase. The home screen shows the Top 5 (best score + date set) and total games played. Added `js/config.js`, `js/db.js`, `supabase/schema.sql`. |
 | `d0280d1` Swipe controls for phones | Swipe to turn, tap to replay after game over. Touch devices see touch-specific hints; page no longer scrolls/zooms while swiping; home screen fits small screens. |
 | `f24a03d` Keep player totals in sync | A database trigger recalculates each player's best score, its date and game count whenever a game row is inserted, edited or deleted, including hand edits in the Supabase dashboard. |
+| Top 5 scores (not players) | The leaderboard now lists the 5 highest single games, so one player can appear several times. Scores live only in `games`: the `best_score`, `best_score_at` and `games_played` columns, the sync trigger and its helper functions were removed. |
 
 ## How it works
 
@@ -45,17 +46,17 @@ Supabase database and shown as a live leaderboard.
 ### Database (Supabase)
 
 - **Tables:** `players` (name, case/space-insensitive unique `name_key`,
-  best score + date, games played) and `games` (one row per finished game).
+  first seen / last played) and `games` (one row per finished game; the
+  only place scores are kept).
 - **Security:** Row Level Security is on with **no policies**, so the public
   key can't touch tables directly. The page can only call four
   `security definer` functions:
   - `register_player(name)` → player id (creates or finds the player)
-  - `submit_score(player_id, score)` → true if new personal best
-  - `get_leaderboard(limit)` → top players (ties go to whoever got there first)
+  - `submit_score(player_id, score)` → true if new personal best (checked against the player's past games)
+  - `get_leaderboard(limit)` → top single games with player name (ties go to whoever got there first)
   - `get_stats()` → total games and players
-- **Trigger:** `games_changed` calls `refresh_player_stats()` after any
-  insert/update/delete on `games`, so `games` is the source of truth.
-  These two internal functions are revoked from the public roles.
+- **Indexes:** `games_leaderboard_idx` (leaderboard sort) and
+  `games_player_score_idx` (personal-best check).
 - If the database isn't configured or reachable, every `Database.*` call
   returns `null` and the game still plays, just without saving.
 
