@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="A classic Snake game played with the arrow keys.">
+  <meta name="description" content="A classic Snake game with a live leaderboard.">
   <title>Snake</title>
 
   <!-- All styling lives in the CSS file -->
@@ -12,18 +12,45 @@
 <body>
   <main class="game">
 
-    <!-- Title and live score -->
+    <!-- Title, current player and live score -->
     <header class="game-header">
       <h1 class="game-title">Snake</h1>
-      <div class="score">Score: <span id="score">0</span></div>
+      <div class="header-info">
+        <span class="player-label hidden" id="player-label">👤 <span id="player-name"></span></span>
+        <span class="score">Score: <span id="score">0</span></span>
+      </div>
     </header>
 
-    <!-- The board: the canvas the game is drawn on, plus text screens on top of it -->
+    <!-- The board: the canvas the game is drawn on, plus screens on top of it -->
     <div class="board" id="board">
       <canvas id="canvas" width="400" height="400"></canvas>
 
+      <!-- Home screen: name entry, leaderboard and stats -->
+      <div class="overlay overlay-home" id="home-screen">
+        <form class="name-form" id="name-form" autocomplete="off">
+          <label for="name-input">Enter your name to play</label>
+          <div class="name-row">
+            <input id="name-input" type="text" maxlength="20" placeholder="Your name">
+            <button type="submit" id="play-button">Play</button>
+          </div>
+          <p class="form-message" id="form-message"></p>
+        </form>
+
+        <section class="leaderboard">
+          <h2>🏆 Top 5</h2>
+          <table>
+            <thead>
+              <tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>
+            </thead>
+            <tbody id="leaderboard-body"></tbody>
+          </table>
+        </section>
+
+        <p class="stats" id="stats"></p>
+      </div>
+
       <!-- Shown before the first move -->
-      <div class="overlay overlay-start" id="start-screen">
+      <div class="overlay overlay-start hidden" id="start-screen">
         <p>Press an arrow key to start</p>
       </div>
 
@@ -31,14 +58,21 @@
       <div class="overlay overlay-game-over hidden" id="game-over-screen">
         <h2>Game Over</h2>
         <p class="final-score">Score: <span id="final-score">0</span></p>
-        <p class="restart">Press space to restart</p>
+        <p class="save-status" id="save-status"></p>
+        <p class="restart">Press space to play again</p>
+        <button type="button" class="link-button" id="home-button">Back to home</button>
       </div>
     </div>
 
     <footer class="game-help">Use the arrow keys to move</footer>
   </main>
 
-  <!-- All game logic lives in the JavaScript file -->
+  <!-- Supabase library (talks to the database) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+
+  <!-- Our scripts: settings, database helpers, then the game -->
+  <script src="js/config.js"></script>
+  <script src="js/db.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

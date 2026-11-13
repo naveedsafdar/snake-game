@@ -50,6 +50,22 @@ body {
   letter-spacing: 1px;
 }
 
+.header-info {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.player-label {
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.player-label.hidden {
+  display: none;
+}
+
 .score {
   font-size: 20px;
   font-weight: 600;
@@ -170,6 +186,163 @@ canvas {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.75; }
+}
+
+/* Saving status under the final score */
+.save-status {
+  min-height: 1.2em;
+  margin: -8px 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.save-status.best {
+  color: var(--accent);
+  font-size: 16px;
+}
+
+/* "Back to home" looks like a link */
+.link-button {
+  margin-top: 14px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ----- Home screen ----- */
+.overlay-home {
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 24px;
+  background: rgba(255, 253, 246, 0.94);
+}
+
+.name-form {
+  width: 100%;
+}
+
+.name-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.name-row {
+  display: flex;
+  gap: 8px;
+}
+
+.name-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 2px solid #c9d6c0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+}
+
+.name-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.name-row button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.name-row button:hover {
+  background: #5a9441;
+}
+
+.name-row button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.form-message {
+  min-height: 1.2em;
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* Leaderboard table */
+.leaderboard {
+  width: 100%;
+}
+
+.leaderboard h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+}
+
+.leaderboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.leaderboard th,
+.leaderboard td {
+  padding: 5px 6px;
+  text-align: left;
+  border-bottom: 1px solid #e6ece0;
+}
+
+.leaderboard th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Keep long names on one line, cut off with "…" */
+.leaderboard td:nth-child(2) {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.leaderboard td:nth-child(3) {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard td:nth-child(4) {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* "Loading…" / "No scores yet" row */
+.leaderboard .message-row td {
+  color: var(--muted);
+  text-align: center;
+  font-weight: 400;
+}
+
+.stats {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* ----- Help text under the board ----- */

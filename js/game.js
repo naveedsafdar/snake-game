@@ -41,6 +41,19 @@ const scoreEl = document.getElementById("score");
 const finalScoreEl = document.getElementById("final-score");
 const startScreen = document.getElementById("start-screen");
 const gameOverScreen = document.getElementById("game-over-screen");
+const saveStatusEl = document.getElementById("save-status");
+const homeButton = document.getElementById("home-button");
+
+// Home screen elements
+const homeScreen = document.getElementById("home-screen");
+const nameForm = document.getElementById("name-form");
+const nameInput = document.getElementById("name-input");
+const playButton = document.getElementById("play-button");
+const formMessage = document.getElementById("form-message");
+const leaderboardBody = document.getElementById("leaderboard-body");
+const statsEl = document.getElementById("stats");
+const playerLabel = document.getElementById("player-label");
+const playerNameEl = document.getElementById("player-name");
 
 // ----- Game state -----
 let snake;          // array of {x, y} grid squares; snake[0] is the head
@@ -48,7 +61,9 @@ let direction;      // current direction {x, y}
 let nextDir;        // direction chosen by the player, used on the next move
 let food;           // {x, y, emoji}
 let score;
-let state;          // "ready" → "playing" → "crashing" → "over"
+let state;          // "home" → "ready" → "playing" → "crashing" → "over"
+let player = { id: null, name: "" };  // who is playing (id comes from the database)
+let saveResult = "";                  // how saving the last score went (see updateSaveStatus)
 let lastStepTime = 0;
 let lastFrameTime = 0;
 
@@ -169,6 +184,9 @@ function crash(x, y) {
   flash = 1;                       // red flash over the board
   restartAnimation(board, "shake"); // shake the board (see style.css)
 
+  // Save the score in the background while the splash plays
+  saveScore(score);
+
   // Show the game-over screen once the splash has played
   setTimeout(showGameOver, 1200);
 }
@@ -176,6 +194,7 @@ function crash(x, y) {
 function showGameOver() {
   state = "over";
   finalScoreEl.textContent = score;
+  updateSaveStatus();
   gameOverScreen.classList.remove("hidden");
 }
 
@@ -204,6 +223,151 @@ function celebrate(eaten) {
 
   // Make the score number pop (see style.css)
   restartAnimation(scoreEl, "pop");
+}
+
+
+/* =========================================================
+   Home screen, players and scores (uses db.js)
+   ========================================================= */
+
+// Show the home screen with a fresh leaderboard
+function showHome() {
+  resetGame();
+  state = "home";
+  homeScreen.classList.remove("hidden");
+  startScreen.classList.add("hidden");
+  gameOverScreen.classList.add("hidden");
+
+  nameInput.value = player.name || loadSavedName();
+  nameInput.focus();
+  loadLeaderboard();
+}
+
+// The player typed their name and pressed Play (or Enter)
+nameForm.addEventListener("submit", async event => {
+  event.preventDefault();   // don't reload the page
+
+  const name = nameInput.value.trim();
+  if (!name) {
+    formMessage.textContent = "Please enter your name.";
+    return;
+  }
+
+  // Save the player in the database (or find them if they've played before)
+  playButton.disabled = true;
+  formMessage.textContent = "";
+  const id = await Database.registerPlayer(name);
+  playButton.disabled = false;
+
+  player = { id, name };
+  saveName(name);
+  playerNameEl.textContent = name;
+  playerLabel.classList.remove("hidden");
+
+  // Hide the home screen and wait for the first arrow key
+  nameInput.blur();
+  homeScreen.classList.add("hidden");
+  resetGame();
+});
+
+homeButton.addEventListener("click", showHome);
+
+// Fill in the Top 5 table and the stats line
+async function loadLeaderboard() {
+  if (!Database.isReady()) {
+    showLeaderboardMessage("Leaderboard isn't connected yet.");
+    statsEl.textContent = "";
+    return;
+  }
+
+  showLeaderboardMessage("Loading…");
+  const [rows, stats] = await Promise.all([
+    Database.getLeaderboard(5),
+    Database.getStats()
+  ]);
+
+  if (rows === null) {
+    showLeaderboardMessage("Couldn't load the leaderboard.");
+  } else if (rows.length === 0) {
+    showLeaderboardMessage("No scores yet. Be the first!");
+  } else {
+    leaderboardBody.replaceChildren(...rows.map((row, i) =>
+      tableRow([i + 1, row.name, row.best_score, formatDate(row.best_score_at)])
+    ));
+  }
+
+  statsEl.textContent = stats
+    ? `Games played: ${stats.total_games}  ·  Players: ${stats.total_players}`
+    : "";
+}
+
+// One table row. textContent (not innerHTML) so a name can't inject HTML.
+function tableRow(values) {
+  const tr = document.createElement("tr");
+  values.forEach(value => {
+    const td = document.createElement("td");
+    td.textContent = value;
+    tr.appendChild(td);
+  });
+  return tr;
+}
+
+// A single full-width row such as "Loading…"
+function showLeaderboardMessage(text) {
+  const tr = document.createElement("tr");
+  tr.className = "message-row";
+  const td = document.createElement("td");
+  td.colSpan = 4;
+  td.textContent = text;
+  tr.appendChild(td);
+  leaderboardBody.replaceChildren(tr);
+}
+
+// e.g. "13 Nov 2026"
+function formatDate(isoDate) {
+  if (!isoDate) return "";
+  return new Date(isoDate).toLocaleDateString(undefined, {
+    day: "numeric", month: "short", year: "numeric"
+  });
+}
+
+// Save the finished game's score
+async function saveScore(finalScore) {
+  if (!player.id) {
+    saveResult = Database.isReady() ? "failed" : "offline";
+    updateSaveStatus();
+    return;
+  }
+  saveResult = "saving";
+  updateSaveStatus();
+
+  const isNewBest = await Database.submitScore(player.id, finalScore);
+  if (isNewBest === null) saveResult = "failed";
+  else saveResult = isNewBest ? "best" : "saved";
+  updateSaveStatus();
+}
+
+// Show how saving went on the game-over screen
+function updateSaveStatus() {
+  const messages = {
+    saving: "Saving score…",
+    saved: "Score saved ✓",
+    best: "🎉 New personal best!",
+    failed: "Couldn't save your score.",
+    offline: ""   // no database set up: say nothing
+  };
+  saveStatusEl.textContent = messages[saveResult] || "";
+  saveStatusEl.classList.toggle("best", saveResult === "best");
+}
+
+// Remember the last name typed on this computer, so it's filled in next time.
+// (Wrapped in try/catch because some browsers block storage.)
+function saveName(name) {
+  try { localStorage.setItem("snakePlayerName", name); } catch (e) {}
+}
+
+function loadSavedName() {
+  try { return localStorage.getItem("snakePlayerName") || ""; } catch (e) { return ""; }
 }
 
 
@@ -453,7 +617,10 @@ function restartAnimation(element, className) {
    ========================================================= */
 
 document.addEventListener("keydown", event => {
-  // Space restarts after game over
+  // On the home screen, keys are for typing the name
+  if (state === "home") return;
+
+  // Space restarts after game over (same player)
   if (event.code === "Space") {
     event.preventDefault();   // stop the page from scrolling
     if (state === "over") resetGame();
@@ -480,6 +647,6 @@ document.addEventListener("keydown", event => {
 });
 
 
-// ----- Start -----
-resetGame();
+// ----- Start on the home screen -----
+showHome();
 requestAnimationFrame(loop);
