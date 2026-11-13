@@ -1,0 +1,179 @@
+/* =========================================================
+   Snake: page styles
+   ========================================================= */
+
+/* ----- Colors used across the page ----- */
+:root {
+  --bg: #f3f7ee;        /* page background */
+  --board: #fffdf6;     /* game board background */
+  --text: #2e3b2a;      /* main text */
+  --muted: #7a8a72;     /* help text */
+  --accent: #6aa84f;    /* green border and highlights */
+  --danger: #d32f2f;    /* red "press space" message */
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ----- Page layout: everything centered ----- */
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.game {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+/* ----- Header: title on the left, score on the right ----- */
+.game-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.game-title {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: 1px;
+}
+
+.score {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+#score {
+  display: inline-block;
+  min-width: 2ch;
+}
+
+/* Score "pops" each time food is eaten (class added by game.js) */
+#score.pop {
+  animation: pop 0.35s ease-out;
+}
+
+@keyframes pop {
+  0%   { transform: scale(1);   color: var(--text); }
+  40%  { transform: scale(1.6); color: var(--accent); }
+  100% { transform: scale(1);   color: var(--text); }
+}
+
+/* ----- The board ----- */
+.board {
+  position: relative;
+  border: 3px solid var(--accent);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(46, 59, 42, 0.15);
+}
+
+canvas {
+  display: block;
+  max-width: calc(100vw - 38px);  /* shrink to fit on small screens */
+  height: auto;
+  background: var(--board);
+}
+
+/* Board shakes on a crash (class added by game.js) */
+.board.shake {
+  animation: shake 0.5s ease-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-8px, 4px); }
+  30% { transform: translate(7px, -5px); }
+  45% { transform: translate(-5px, -3px); }
+  60% { transform: translate(4px, 3px); }
+  75% { transform: translate(-2px, 1px); }
+}
+
+/* ----- Text screens on top of the board ----- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+/* Start hint sits near the bottom so the snake stays visible */
+.overlay-start {
+  justify-content: flex-end;
+  padding-bottom: 32px;
+  pointer-events: none;
+}
+
+.overlay-start p {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255, 253, 246, 0.5);  /* see-through so food behind it still shows */
+  font-weight: 600;
+}
+
+/* Game-over screen fades in over a faded board */
+.overlay-game-over {
+  justify-content: center;
+  background: rgba(255, 253, 246, 0.6);
+  animation: fade-in 0.4s ease-out;
+}
+
+.overlay-game-over h2 {
+  margin: 0 0 8px;
+  font-size: 36px;
+}
+
+/* White glow keeps the text readable over the splash */
+.overlay-game-over h2,
+.overlay-game-over p {
+  text-shadow: 0 0 6px #fff, 0 0 12px #fff;
+}
+
+.final-score {
+  margin: 0 0 16px;
+  font-size: 22px;
+}
+
+/* The restart message is red and gently pulses */
+.restart {
+  margin: 0;
+  color: var(--danger);
+  font-size: 18px;
+  font-weight: 700;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.75; }
+}
+
+/* ----- Help text under the board ----- */
+.game-help {
+  color: var(--muted);
+  font-size: 14px;
+}

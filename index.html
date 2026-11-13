@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="A classic Snake game played with the arrow keys.">
+  <title>Snake</title>
+
+  <!-- All styling lives in the CSS file -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="game">
+
+    <!-- Title and live score -->
+    <header class="game-header">
+      <h1 class="game-title">Snake</h1>
+      <div class="score">Score: <span id="score">0</span></div>
+    </header>
+
+    <!-- The board: the canvas the game is drawn on, plus text screens on top of it -->
+    <div class="board" id="board">
+      <canvas id="canvas" width="400" height="400"></canvas>
+
+      <!-- Shown before the first move -->
+      <div class="overlay overlay-start" id="start-screen">
+        <p>Press an arrow key to start</p>
+      </div>
+
+      <!-- Shown after a crash -->
+      <div class="overlay overlay-game-over hidden" id="game-over-screen">
+        <h2>Game Over</h2>
+        <p class="final-score">Score: <span id="final-score">0</span></p>
+        <p class="restart">Press space to restart</p>
+      </div>
+    </div>
+
+    <footer class="game-help">Use the arrow keys to move</footer>
+  </main>
+
+  <!-- All game logic lives in the JavaScript file -->
+  <script src="js/game.js"></script>
+</body>
+</html>
