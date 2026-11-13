@@ -73,7 +73,8 @@ begin
 end;
 $$;
 
--- Save a finished game and update the player's best score.
+-- Save a finished game. The player's best score and game count are
+-- updated automatically by the trigger further down.
 -- Returns true when this game is a new personal best.
 create or replace function public.submit_score(p_player_id bigint, p_score integer)
 returns boolean
@@ -83,14 +84,13 @@ set search_path = public
 as $$
 declare
   v_old_best integer;
-  v_old_date timestamptz;
 begin
   if p_score is null or p_score < 0 or p_score > 397 then
     raise exception 'Invalid score';
   end if;
 
   -- Lock the player row so two games finishing at once can't clash
-  select best_score, best_score_at into v_old_best, v_old_date
+  select best_score into v_old_best
   from players where id = p_player_id
   for update;
 
@@ -99,16 +99,7 @@ begin
   end if;
 
   insert into games (player_id, score) values (p_player_id, p_score);
-
-  update players set
-    games_played   = games_played + 1,
-    last_played_at = now(),
-    best_score     = greatest(v_old_best, p_score),
-    best_score_at  = case
-                       when p_score > v_old_best or v_old_date is null then now()
-                       else v_old_date
-                     end
-  where id = p_player_id;
+  update players set last_played_at = now() where id = p_player_id;
 
   return p_score > v_old_best;
 end;
@@ -142,6 +133,66 @@ as $$
     'total_players', (select count(*) from players)
   );
 $$;
+
+
+-- ---------------------------------------------------------
+-- Keep each player's totals in sync with the games table
+--
+-- The games table is the source of truth. Whenever a game is
+-- added, edited or deleted (by the game OR by hand in the
+-- Supabase dashboard), the player's best_score, best_score_at
+-- and games_played are recalculated from their games.
+-- ---------------------------------------------------------
+
+-- Recalculate one player's totals from their games
+create or replace function public.refresh_player_stats(p_player_id bigint)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update players set
+    games_played  = (select count(*) from games where player_id = p_player_id),
+    best_score    = coalesce((select max(score) from games where player_id = p_player_id), 0),
+    -- date of the first game that reached the best score
+    best_score_at = (select played_at from games
+                     where player_id = p_player_id
+                     order by score desc, played_at asc
+                     limit 1)
+  where id = p_player_id;
+$$;
+
+-- Runs after every change to the games table
+create or replace function public.games_changed()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if tg_op = 'DELETE' then
+    perform refresh_player_stats(old.player_id);
+  else
+    perform refresh_player_stats(new.player_id);
+    -- a game moved to a different player: fix the old player too
+    if tg_op = 'UPDATE' and old.player_id <> new.player_id then
+      perform refresh_player_stats(old.player_id);
+    end if;
+  end if;
+  return null;
+end;
+$$;
+
+create or replace trigger games_changed
+  after insert or update or delete on public.games
+  for each row execute function public.games_changed();
+
+-- Bring every player up to date now (fixes any earlier hand edits)
+select public.refresh_player_stats(id) from public.players;
+
+-- These two are internal: the web page must not be able to call them.
+revoke all on function public.refresh_player_stats(bigint) from public, anon, authenticated;
+revoke all on function public.games_changed()              from public, anon, authenticated;
 
 
 -- Only these functions are callable from the web page.
