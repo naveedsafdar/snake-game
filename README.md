@@ -14,6 +14,9 @@ Open `index.html` in any web browser.
 - Each time your score passes a multiple of 5, a **cactus** 🌵 (red ring)
   appears for 8 seconds. Eating it costs **5 points** and shrinks the snake
   by 5 squares (the score never goes below 0, the snake never below 3 squares)
+- Each time your score passes a multiple of 20, a blinking **pill** 💊 (blue
+  ring) appears for 5 seconds. Eating it shrinks the snake by 5 squares and
+  **keeps your score** (it comes on its own schedule, on top of the foods and cactus)
 - Hitting a wall or yourself ends the game
 - **Space** (or **tap** on a phone) plays again after game over
 
@@ -38,5 +41,6 @@ players (best score and the date it was set) plus the total games played.
 | `supabase/schema.sql` | Database tables and functions |
 
 To change the speed, edit `STEP_MS` at the top of `js/game.js` (lower is faster).
-The foods, their points and the cactus rules (`CACTUS_EVERY`, `CACTUS_SECONDS`)
-are set just below it. The snake grows or shrinks by the same number as the points.
+The foods, their points, and the cactus and pill rules (`CACTUS_*`, `PILL_*`)
+are set just below it. Food and the cactus grow or shrink the snake by the same
+number as their points.

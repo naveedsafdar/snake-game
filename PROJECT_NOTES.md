@@ -27,6 +27,7 @@ Supabase database and shown as a live leaderboard.
 | `254d909` Grow by points | The snake grows/shrinks by the points: healthy +2, junk +1, cactus −5. |
 | `13a2506`, `ede86d6` Live-site fixes | Leaderboard code worked with both database versions during the switch; `?v=` added to CSS/JS links so browsers load new files after an update. |
 | `e81a059` Simpler database | Leaderboard stays one row per player, but each player's best is now worked out from `games`. Removed from `players`: `best_score`, `best_score_at`, `games_played`, `first_seen_at`, `last_played_at`; removed the sync trigger, its 2 helper functions and the old index. One new index. Score limit stays 397. Applied in Supabase on 2026-11-14. |
+| Pill power-up | A blinking 💊 (blue ring) appears for 5 seconds each time the score passes a multiple of 20, on its own schedule alongside foods and cactus. Eating it shrinks the snake by 5 and keeps the score. Database score cap raised from 397 to 9999 (needs `schema.sql` run in Supabase). |
 
 ## How it works
 
@@ -96,9 +97,23 @@ Supabase database and shown as a live leaderboard.
   burst, red floating "−5 🌵", small board jolt. The game continues.
 - If the score drops (e.g. 10 → 5), passing 10 again spawns another cactus.
 
+#### 5b. Pill 💊
+
+- Appears when the score **passes a multiple of 20** (20, 40, 60, …), on its own
+  schedule: it comes **in addition** to the foods and the cactus, which carry on
+  as normal. At 20, 40, … a cactus and a pill can both appear.
+- Only one pill at a time. Never placed within 2 squares of the snake's head.
+- **Blinks the whole time** it's on the board, on a blue ring. Stays **5 seconds**
+  (`PILL_SECONDS`), then vanishes. It does not move when food is eaten.
+- Eating it: the snake **shrinks 5 squares** (`PILL_SHRINK`), the **score stays
+  the same**; blue sparkle burst and a blue floating "−5 🐍 💊".
+- If the score drops below a multiple of 20 (via a cactus) and passes it again,
+  another pill appears.
+
 #### 6. Growing and shrinking
 
 - The snake's length changes by the points of what it eats: +2, +1 or −5.
+  The pill is the exception: −5 squares with no change to the score.
 - `growPending` holds squares still to grow: each move with `growPending > 0`
   keeps the tail (length +1) instead of dropping it, so +2 shows over 2 moves.
 - Shrinking takes squares off the tail immediately (pending growth is used up first).
@@ -107,15 +122,16 @@ Supabase database and shown as a live leaderboard.
 #### 7. Score
 
 - Starts at 0, never goes below 0 (a cactus at 3 points → 0).
-- Highest possible score is 397: every point adds one square, and the board has
-  400 squares with the snake starting at 3. The database rejects anything else.
+- No fixed maximum: the pill shrinks the snake without lowering the score, so
+  the board size no longer limits the score. The database accepts 0–9999
+  (a safety cap against bad data).
 
 #### 8. Where things are placed
 
-- Foods and the cactus go on a random **empty** square: not on the snake and
+- Foods, the cactus and the pill go on a random **empty** square: not on the snake and
   not on another item.
 - If there's no empty square, a food is skipped and tried again after the
-  next move; a cactus is simply skipped.
+  next move; a cactus or pill is simply skipped.
 
 #### 9. Saving the score (game over)
 
@@ -146,23 +162,27 @@ auto-focus (so the keyboard doesn't cover the leaderboard).
 | `ITEMS` | — | Each kind's emojis, points (= growth) and ring color |
 | `CACTUS_EVERY` | 5 | Cactus appears each time the score passes a multiple of this |
 | `CACTUS_SECONDS` | 8 | How long a cactus stays |
+| `PILL_EVERY` | 20 | Pill appears each time the score passes a multiple of this |
+| `PILL_SECONDS` | 5 | How long a pill stays |
+| `PILL_SHRINK` | 5 | Squares the snake loses when it eats a pill |
 | `MIN_LENGTH` | 3 | Shortest the snake can get |
 | `SWIPE_MIN` | 24 | Pixels a finger must move to count as a swipe |
 
-If the max score changes (board size or points), update the 397 limit in
-`supabase/schema.sql` too.
+The database score cap (9999) is in `supabase/schema.sql`, in two places:
+the `games_score_check` rule and `submit_score`.
 
 #### 12. Main functions (where to look)
 
 | Function | Does |
 |---|---|
-| `resetGame()` | New snake, score 0, fresh foods, no cactus, state `ready` |
-| `step()` | One move: crash check, eating, growing/shrinking, cactus spawn, refill foods |
-| `placeItem(kind)` / `refillFoods()` | Random empty square for a food or cactus |
+| `resetGame()` | New snake, score 0, fresh foods, no cactus or pill, state `ready` |
+| `step()` | One move: crash check, eating, growing/shrinking, cactus/pill spawn, refill foods |
+| `placeItem(kind)` / `refillFoods()` | Random empty square for a food, cactus or pill |
 | `changeScore(points)` | Adds points, floors at 0, updates the header |
-| `updateCactus(dt)` | Cactus countdown |
+| `passed(before, after, every)` | Did the score pass a multiple of 5 / 20? |
+| `updateTimers(dt)` | Cactus and pill countdowns |
 | `crash()` / `showGameOver()` | Splash effects, save score, game-over screen |
-| `celebrate()` / `ouch()` | Effects for eating food / a cactus |
+| `celebrate()` / `ouch()` / `healed()` | Effects for eating food / a cactus / a pill |
 | `showHome()` / `loadLeaderboard()` | Home screen and Top 5 table |
 | `saveScore()` / `updateSaveStatus()` | Save to the database and show the result |
 | `loop()` / `draw()` / `drawItem()` / `drawSnake()` | Animation and drawing |

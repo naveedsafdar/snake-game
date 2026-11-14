@@ -10,17 +10,21 @@ const ROWS = 20;        // squares down
 const STEP_MS = 110;    // time between snake moves in ms (lower = faster)
 
 // What can appear on the board: the emoji to pick from, points for eating it
-// (the snake also grows or shrinks by that many squares),
-// and the color of the glowing ring drawn behind it so it stands out
+// (for food and the cactus, the snake also grows or shrinks by that many
+// squares), and the color of the glowing ring drawn behind it so it stands out
 const ITEMS = {
   junk:    { emojis: ["🍔", "🍕", "🍟", "🌭", "🍩"], points: 1, glow: "#ff6d00" },
   healthy: { emojis: ["🍎", "🍓", "🍒", "🍉", "🍇", "🍊", "🥝", "🍑"], points: 2, glow: "#43a047" },
-  cactus:  { emojis: ["🌵"], points: -5, glow: "#e53935" }
+  cactus:  { emojis: ["🌵"], points: -5, glow: "#e53935" },
+  pill:    { emojis: ["💊"], points: 0, glow: "#1e88e5" }   // shrinks the snake, score unchanged
 };
 const FOOD_KINDS = ["junk", "healthy"];  // one of each is always on the board
 
 const CACTUS_EVERY = 5;     // a cactus appears each time the score passes a multiple of this
 const CACTUS_SECONDS = 8;   // how long a cactus stays if it isn't eaten
+const PILL_EVERY = 20;      // a pill appears each time the score passes a multiple of this
+const PILL_SECONDS = 5;     // how long a pill stays if it isn't eaten
+const PILL_SHRINK = 5;      // squares the snake loses when it eats a pill
 const MIN_LENGTH = 3;       // the snake never shrinks below this
 
 const COLORS = {
@@ -34,7 +38,8 @@ const COLORS = {
   tongue: "#d32f2f",
   blood: ["#8e0000", "#b71c1c", "#d32f2f", "#e53935"],
   confetti: ["#ffb300", "#43a047", "#e53935", "#1e88e5", "#8e24aa"],
-  prickles: ["#2e7d32", "#43a047", "#7cb342", "#d32f2f"]
+  prickles: ["#2e7d32", "#43a047", "#7cb342", "#d32f2f"],
+  sparkles: ["#1e88e5", "#64b5f6", "#ffffff", "#e53935"]
 };
 
 // Arrow keys → direction of movement
@@ -73,6 +78,7 @@ let direction;      // current direction {x, y}
 let nextDir;        // direction chosen by the player, used on the next move
 let foods;          // [junk, healthy]: each {x, y, kind, emoji} (null if the board is full)
 let cactus;         // {x, y, kind, emoji, timeLeft} or null
+let pill;           // {x, y, kind, emoji, timeLeft} or null
 let score;
 let growPending;    // squares still to grow (one is added per move, from the tail)
 let state;          // "home" → "ready" → "playing" → "crashing" → "over"
@@ -112,6 +118,7 @@ function resetGame() {
 
   foods = [];
   cactus = null;
+  pill = null;
   refillFoods();
   state = "ready";
   startScreen.classList.remove("hidden");
@@ -120,7 +127,7 @@ function resetGame() {
 
 // Everything that can be eaten right now
 function itemsOnBoard() {
-  return foods.concat([cactus]).filter(Boolean);
+  return foods.concat([cactus, pill]).filter(Boolean);
 }
 
 // Make sure one junk food and one healthy food are on the board
@@ -138,15 +145,17 @@ function placeItem(kind) {
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       if (taken.some(t => t.x === x && t.y === y)) continue;
-      // Don't drop a cactus right in front of the snake's face
-      if (kind === "cactus" && Math.abs(x - head.x) + Math.abs(y - head.y) < 3) continue;
+      // Don't drop a cactus or pill right in front of the snake's face
+      const special = kind === "cactus" || kind === "pill";
+      if (special && Math.abs(x - head.x) + Math.abs(y - head.y) < 3) continue;
       free.push({ x, y });
     }
   }
   if (free.length === 0) return null;
 
   const cell = pick(free);
-  return { x: cell.x, y: cell.y, kind, emoji: pick(ITEMS[kind].emojis), timeLeft: CACTUS_SECONDS };
+  const timeLeft = kind === "pill" ? PILL_SECONDS : CACTUS_SECONDS;   // foods don't use it
+  return { x: cell.x, y: cell.y, kind, emoji: pick(ITEMS[kind].emojis), timeLeft };
 }
 
 // Add (or take away) points; the score never goes below 0
@@ -190,6 +199,11 @@ function step() {
     growPending += ITEMS.cactus.points;
     changeScore(ITEMS.cactus.points);
     ouch(eaten);
+  } else if (eaten && eaten.kind === "pill") {
+    // Ate the pill: the snake shrinks, the score stays the same
+    pill = null;
+    growPending -= PILL_SHRINK;
+    healed(eaten);
   } else if (eaten) {
     // Ate food: the snake grows by as many squares as the points (+1 or +2).
     // Both foods are cleared, and a fresh pair is placed below
@@ -200,11 +214,11 @@ function step() {
     changeScore(ITEMS[eaten.kind].points);
     celebrate(eaten);
 
-    // A cactus appears each time the score passes a multiple of CACTUS_EVERY
-    // (healthy food is worth 2, so the score can jump past it, e.g. 4 → 6)
-    if (!cactus && Math.floor(score / CACTUS_EVERY) > Math.floor(before / CACTUS_EVERY)) {
-      cactus = placeItem("cactus");
-    }
+    // A cactus appears each time the score passes a multiple of CACTUS_EVERY,
+    // and a pill each time it passes a multiple of PILL_EVERY, each on its own
+    // schedule (healthy food is worth 2, so the score can jump past, e.g. 4 → 6)
+    if (!cactus && passed(before, score, CACTUS_EVERY)) cactus = placeItem("cactus");
+    if (!pill && passed(before, score, PILL_EVERY)) pill = placeItem("pill");
   }
 
   // Grow by keeping the tail (one square per move), otherwise drop it so
@@ -224,11 +238,21 @@ function step() {
   refillFoods();
 }
 
-// Count down the cactus timer; it disappears when time runs out
-function updateCactus(dt) {
-  if (!cactus) return;
-  cactus.timeLeft -= dt;
-  if (cactus.timeLeft <= 0) cactus = null;
+// true when the score went past a multiple of `every` (e.g. 18 → 20 or 19 → 21 for 20)
+function passed(before, after, every) {
+  return Math.floor(after / every) > Math.floor(before / every);
+}
+
+// Count down the cactus and pill timers; each disappears when its time runs out
+function updateTimers(dt) {
+  if (cactus) {
+    cactus.timeLeft -= dt;
+    if (cactus.timeLeft <= 0) cactus = null;
+  }
+  if (pill) {
+    pill.timeLeft -= dt;
+    if (pill.timeLeft <= 0) pill = null;
+  }
 }
 
 // The snake crashed at pixel position (x, y)
@@ -306,11 +330,8 @@ function celebrate(eaten) {
   restartAnimation(scoreEl, "pop");
 }
 
-// The snake ate a cactus: green prickles, a red "−5" and a small shake
-function ouch(eaten) {
-  const x = (eaten.x + 0.5) * CELL;
-  const y = (eaten.y + 0.5) * CELL;
-
+// A small burst of colored dots flying out from (x, y)
+function burst(x, y, colors) {
   for (let i = 0; i < 20; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 60 + Math.random() * 160;
@@ -321,9 +342,24 @@ function ouch(eaten) {
       size: 1.5 + Math.random() * 2,
       age: 0,
       life: 0.5 + Math.random() * 0.3,
-      color: pick(COLORS.prickles)
+      color: pick(colors)
     });
   }
+}
+
+// The snake ate a pill: blue sparkles and a blue "−5 🐍" (the score doesn't change)
+function healed(eaten) {
+  const x = (eaten.x + 0.5) * CELL;
+  const y = (eaten.y + 0.5) * CELL;
+  burst(x, y, COLORS.sparkles);
+  popups.push({ x, y, age: 0, life: 1.1, text: "−" + PILL_SHRINK + " 🐍 " + eaten.emoji, color: "#1565c0" });
+}
+
+// The snake ate a cactus: green prickles, a red "−5" and a small shake
+function ouch(eaten) {
+  const x = (eaten.x + 0.5) * CELL;
+  const y = (eaten.y + 0.5) * CELL;
+  burst(x, y, COLORS.prickles);
 
   popups.push({ x, y, age: 0, life: 1.1, text: "−5 " + eaten.emoji, color: "#d32f2f" });
   restartAnimation(board, "nudge");
@@ -493,7 +529,7 @@ function loop(time) {
     lastStepTime = time;
     step();
   }
-  if (state === "playing") updateCactus(dt);
+  if (state === "playing") updateTimers(dt);
 
   updateEffects(dt);
   draw(time);
@@ -563,7 +599,7 @@ function drawSplats() {
   ctx.globalAlpha = 1;
 }
 
-// Food (or a cactus) on a bright glowing ring, gently pulsing so it's easy to spot
+// Food (or a cactus or pill) on a bright glowing ring, gently pulsing so it's easy to spot
 function drawItem(item, time) {
   const cx = (item.x + 0.5) * CELL;
   const cy = (item.y + 0.5) * CELL;
@@ -572,8 +608,10 @@ function drawItem(item, time) {
 
   ctx.save();
 
-  // A cactus blinks during its last 2 seconds, as a warning it's about to go
-  if (item.kind === "cactus" && item.timeLeft < 2 && Math.floor(time / 150) % 2 === 0) {
+  // The pill blinks the whole time it's on the board; a cactus blinks
+  // during its last 2 seconds, as a warning it's about to go
+  const blinking = item.kind === "pill" || (item.kind === "cactus" && item.timeLeft < 2);
+  if (blinking && Math.floor(time / 150) % 2 === 0) {
     ctx.globalAlpha = 0.35;
   }
 

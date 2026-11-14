@@ -23,9 +23,15 @@ create table if not exists public.players (
 create table if not exists public.games (
   id         bigint generated always as identity primary key,
   player_id  bigint not null references public.players (id) on delete cascade,
-  score      integer not null check (score between 0 and 397),  -- 397 = a full 20x20 board
+  score      integer not null check (score between 0 and 9999),  -- 9999 = safety cap
   played_at  timestamptz not null default now()
 );
+
+-- Highest score allowed. The pill shrinks the snake without lowering the
+-- score, so scores are no longer limited by the board size; 9999 is just a
+-- safety cap. (Older versions allowed only up to 397: update existing tables.)
+alter table public.games drop constraint if exists games_score_check;
+alter table public.games add constraint games_score_check check (score between 0 and 9999);
 
 -- Each player's games, best first: used by the leaderboard
 -- and by the "new personal best" check
@@ -110,7 +116,7 @@ as $$
 declare
   v_old_best integer;
 begin
-  if p_score is null or p_score < 0 or p_score > 397 then
+  if p_score is null or p_score < 0 or p_score > 9999 then
     raise exception 'Invalid score';
   end if;
 
