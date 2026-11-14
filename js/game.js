@@ -212,7 +212,7 @@ function step() {
   } else if (eaten && eaten.kind === "pill") {
     // Ate the pill: the snake shrinks over the next few seconds, the score stays the same
     pill = null;
-    startShrink(PILL_SHRINK, ITEMS.pill.glow);
+    startShrink(PILL_SHRINK, ITEMS.cactus.glow);   // same red shrink effect as the cactus
     healed(eaten);
   } else if (eaten) {
     // Ate food: the snake grows by as many squares as the points (+1 or +2).
@@ -726,8 +726,8 @@ function drawSnake(time) {
     circle(midX, midY, widthAt(i) * 0.14);
   }
 
-  // 4) While shrinking, the end of the tail glows and pulses (blue for a pill,
-  //    red for a cactus), strongest at the tip
+  // 4) While shrinking, the end of the tail glows and pulses red (cactus or
+  //    pill), strongest at the tip
   if (shrink.left > 0) {
     const glowSquares = Math.min(last, shrink.left + 2);
     const pulse = 0.45 + 0.3 * Math.sin(time / 80);

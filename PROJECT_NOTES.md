@@ -30,6 +30,7 @@ Supabase database and shown as a live leaderboard.
 | `4af21e1` Pill power-up | A blinking 💊 (blue ring) appears for 5 seconds each time the score passes a multiple of 20, on its own schedule alongside foods and cactus. Eating it shrinks the snake by 5 and keeps the score. Database score cap raised from 397 to 9999 (applied in Supabase on 2026-11-14). |
 | Swallow and dissolve animations | Eaten food and cactus show as a lump with a mini emoji that the snake slides over (fades after 5 squares). Squares lost to a cactus or pill dissolve one by one from the tail tip, red or blue. |
 | Flowing food, slow shrink, pill −10 | Swallowed food travels down the body to the tail and is absorbed (fades if the tail is cut off). Cactus and pill now shrink the snake for real, one square at a time over 3 seconds, with the tail glowing red/blue. Pill shrinks by 10 instead of 5. |
+| Red shrink for the pill | The pill's shrink glow and sparkles are now red, the same as the cactus (its ring and popup stay blue). |
 
 ## How it works
 
@@ -117,7 +118,7 @@ Supabase database and shown as a live leaderboard.
   (`PILL_SECONDS`), then vanishes. It does not move when food is eaten.
 - Eating it: the snake **shrinks 10 squares over 3 seconds** (`PILL_SHRINK`,
   see 6), the **score stays the same**; blue sparkle burst and a blue floating
-  "−10 🐍 💊". The tail glows **blue** while it shrinks.
+  "−10 🐍 💊". The tail glows **red** while it shrinks (same effect as the cactus).
 - If the score drops below a multiple of 20 (via a cactus) and passes it again,
   another pill appears.
 
@@ -132,7 +133,7 @@ Supabase database and shown as a live leaderboard.
   (3 seconds). Pill: one every 0.3s; cactus: one every 0.6s. The tail you see
   is the real snake, so you can still crash into it until it's gone.
 - **Shrink animation** (same for cactus and pill): while shrinking, the end of
-  the tail glows and pulses (blue for a pill, red for a cactus), the tip slides
+  the tail glows and pulses red, the tip slides
   in smoothly toward the next square, and a few sparkles pop as each square goes.
 - Growing and shrinking are independent: food eaten during a shrink still grows
   the snake, and a second cactus/pill adds to the shrink (the remaining squares
