@@ -24,12 +24,12 @@ const CACTUS_EVERY = 5;     // a cactus appears each time the score passes a mul
 const CACTUS_SECONDS = 8;   // how long a cactus stays if it isn't eaten
 const PILL_EVERY = 20;      // a pill appears each time the score passes a multiple of this
 const PILL_SECONDS = 5;     // how long a pill stays if it isn't eaten
-const PILL_SHRINK = 5;      // squares the snake loses when it eats a pill
+const PILL_SHRINK = 10;     // squares the snake loses when it eats a pill
 const MIN_LENGTH = 3;       // the snake never shrinks below this
 
-const LUMP_SQUARES = 5;     // swallowed food shows as a lump for this many squares
-const SHED_SECONDS = 0.35;  // how long each lost tail square takes to dissolve
-const SHED_GAP = 0.08;      // delay between lost squares, so they go one by one
+const SHRINK_SECONDS = 3;   // a cactus or pill shrinks the snake gradually over this long
+const FLOW_SPEED = 25;      // swallowed food travels down the body this many squares a second
+const FLOW_FADE = 0.3;      // seconds a swallowed food takes to fade if the tail is cut off
 
 const COLORS = {
   tileLight: "#fffdf6",   // board checkerboard
@@ -94,8 +94,8 @@ let lastFrameTime = 0;
 // ----- Visual effects -----
 let particles = []; // small flying dots (eat confetti and crash splash)
 let splats = [];    // red stains left on the board after a crash
-let lumps = [];     // swallowed food: {index, emoji}; index = body square it's in (0 = head)
-let shed = [];      // tail squares dissolving after a cactus or pill: {x, y, delay, age, color, next}
+let flows = [];     // swallowed food travelling down the body: {emoji, age, fading}
+let shrink;         // gradual shrinking: {left: squares still to lose, every: seconds per square, clock, color}
 let popups = [];    // floating "+1" texts
 let flash = 0;      // strength of the red flash after a crash (1 fades to 0)
 
@@ -119,8 +119,8 @@ function resetGame() {
 
   particles = [];
   splats = [];
-  lumps = [];
-  shed = [];
+  flows = [];
+  shrink = { left: 0, every: 0, clock: 0, color: "" };
   popups = [];
   flash = 0;
 
@@ -199,24 +199,20 @@ function step() {
   // Add the new head to the front
   snake.unshift(head);
 
-  // Swallowed food stays where it was eaten while the snake slides forward
-  // over it (like a real snake), so it's one square further from the head
-  lumps.forEach(lump => lump.index++);
-  lumps = lumps.filter(lump => lump.index <= LUMP_SQUARES);
-
   const eaten = itemsOnBoard().find(item => item.x === head.x && item.y === head.y);
 
   if (eaten && eaten.kind === "cactus") {
-    // Ate the cactus: lose points, and the snake shrinks by the same amount
+    // Ate the cactus: lose points now, and the snake shrinks by the same
+    // amount over the next few seconds
     cactus = null;
-    growPending += ITEMS.cactus.points;
     changeScore(ITEMS.cactus.points);
+    startShrink(-ITEMS.cactus.points, ITEMS.cactus.glow);
     ouch(eaten);
-    lumps.push({ index: 0, emoji: eaten.emoji });
+    flows.push({ emoji: eaten.emoji, age: 0 });
   } else if (eaten && eaten.kind === "pill") {
-    // Ate the pill: the snake shrinks, the score stays the same
+    // Ate the pill: the snake shrinks over the next few seconds, the score stays the same
     pill = null;
-    growPending -= PILL_SHRINK;
+    startShrink(PILL_SHRINK, ITEMS.pill.glow);
     healed(eaten);
   } else if (eaten) {
     // Ate food: the snake grows by as many squares as the points (+1 or +2).
@@ -227,7 +223,7 @@ function step() {
     const before = score;
     changeScore(ITEMS[eaten.kind].points);
     celebrate(eaten);
-    lumps.push({ index: 0, emoji: eaten.emoji });
+    flows.push({ emoji: eaten.emoji, age: 0 });
 
     // A cactus appears each time the score passes a multiple of CACTUS_EVERY,
     // and a pill each time it passes a multiple of PILL_EVERY, each on its own
@@ -237,26 +233,12 @@ function step() {
   }
 
   // Grow by keeping the tail (one square per move), otherwise drop it so
-  // the length stays the same. Shrinking drops extra squares off the tail.
+  // the length stays the same. (Shrinking happens over time, in updateTimers.)
   if (growPending > 0) {
     growPending--;
   } else {
     snake.pop();
   }
-  // Lost squares dissolve one by one from the tip of the tail
-  // (blue for a pill, red for a cactus)
-  const shedColor = eaten && eaten.kind === "pill" ? ITEMS.pill.glow : ITEMS.cactus.glow;
-  let lost = 0, previous = null;
-  while (growPending < 0 && snake.length > MIN_LENGTH) {
-    const square = snake.pop();
-    const part = { x: square.x, y: square.y, delay: lost * SHED_GAP, age: 0, color: shedColor };
-    if (previous) previous.next = part;   // the square next to it, toward the body
-    shed.push(part);
-    previous = part;
-    lost++;
-    growPending++;
-  }
-  growPending = Math.max(0, growPending);   // never shrink below MIN_LENGTH
 
   // Place new foods where needed (after eating, or if they couldn't fit before)
   refillFoods();
@@ -267,8 +249,30 @@ function passed(before, after, every) {
   return Math.floor(after / every) > Math.floor(before / every);
 }
 
-// Count down the cactus and pill timers; each disappears when its time runs out
+// Start (or add to) a gradual shrink: the snake loses `squares` off its tail,
+// evenly spread over SHRINK_SECONDS, with the tail glowing in `color`
+function startShrink(squares, color) {
+  shrink.left += squares;
+  shrink.every = SHRINK_SECONDS / shrink.left;
+  shrink.clock = 0;
+  shrink.color = color;
+}
+
+// Count down the cactus and pill timers, and shrink the snake a square at a time
 function updateTimers(dt) {
+  if (shrink.left > 0) {
+    shrink.clock += dt;
+    while (shrink.left > 0 && shrink.clock >= shrink.every) {
+      shrink.clock -= shrink.every;
+      shrink.left--;
+      if (snake.length > MIN_LENGTH) {
+        const tail = snake.pop();
+        burst((tail.x + 0.5) * CELL, (tail.y + 0.5) * CELL, [shrink.color, "#ffffff"], 6);
+      }
+    }
+    if (snake.length <= MIN_LENGTH) shrink.left = 0;   // never shorter than MIN_LENGTH
+  }
+
   if (cactus) {
     cactus.timeLeft -= dt;
     if (cactus.timeLeft <= 0) cactus = null;
@@ -371,7 +375,7 @@ function burst(x, y, colors, count = 20) {
   }
 }
 
-// The snake ate a pill: blue sparkles and a blue "−5 🐍" (the score doesn't change)
+// The snake ate a pill: blue sparkles and a blue "−10 🐍" (the score doesn't change)
 function healed(eaten) {
   const x = (eaten.x + 0.5) * CELL;
   const y = (eaten.y + 0.5) * CELL;
@@ -581,15 +585,23 @@ function updateEffects(dt) {
   });
   popups = popups.filter(p => p.age < p.life);
 
-  // Dissolving tail squares: a few sparkles as each one starts to go
-  shed.forEach(part => {
-    part.age += dt;
-    if (!part.started && part.age >= part.delay) {
-      part.started = true;
-      burst((part.x + 0.5) * CELL, (part.y + 0.5) * CELL, [part.color, "#ffffff"], 5);
+  // Swallowed food travels down the body. At the tail it's absorbed with a
+  // small puff, or, if the tail is being cut off by a shrink, it fades out.
+  const last = snake.length - 1;
+  flows.forEach(f => {
+    if (f.fading !== undefined) { f.fading += dt; return; }
+    f.age += dt;
+    if (f.age * FLOW_SPEED >= last) {
+      if (shrink.left > 0) {
+        f.fading = 0;
+      } else {
+        f.done = true;
+        const tail = snake[last];
+        burst((tail.x + 0.5) * CELL, (tail.y + 0.5) * CELL, [COLORS.snakeScales, "#ffffff"], 8);
+      }
     }
   });
-  shed = shed.filter(part => part.age < part.delay + SHED_SECONDS);
+  flows = flows.filter(f => !f.done && !(f.fading >= FLOW_FADE));
 
   flash = Math.max(0, flash - dt * 2);
 }
@@ -603,7 +615,6 @@ function draw(time) {
   drawBoard();
   drawSplats();
   itemsOnBoard().forEach(item => drawItem(item, time));
-  drawShed();
   drawSnake(time);
   drawParticles();
   drawPopups();
@@ -679,6 +690,15 @@ function drawSnake(time) {
   const points = snake.map(p => ({ x: (p.x + 0.5) * CELL, y: (p.y + 0.5) * CELL }));
   const last = points.length - 1;
 
+  // While shrinking, the tip of the tail slides in smoothly toward the next square
+  if (shrink.left > 0 && last > 0) {
+    const t = Math.min(1, shrink.clock / shrink.every);
+    points[last] = {
+      x: points[last].x + (points[last - 1].x - points[last].x) * t,
+      y: points[last].y + (points[last - 1].y - points[last].y) * t
+    };
+  }
+
   // Body width: thick at the neck, thin at the tail
   const widthAt = i => CELL * (0.75 - 0.4 * (i / last));
 
@@ -706,29 +726,47 @@ function drawSnake(time) {
     circle(midX, midY, widthAt(i) * 0.14);
   }
 
-  // 4) Swallowed food: a bulge in the body with a small copy of the food inside,
-  //    shrinking and fading over LUMP_SQUARES squares (smoothly between moves)
-  const between = state === "playing" ? Math.min(1, (time - lastStepTime) / STEP_MS) : 0;
+  // 4) While shrinking, the end of the tail glows and pulses (blue for a pill,
+  //    red for a cactus), strongest at the tip
+  if (shrink.left > 0) {
+    const glowSquares = Math.min(last, shrink.left + 2);
+    const pulse = 0.45 + 0.3 * Math.sin(time / 80);
+    ctx.strokeStyle = shrink.color;
+    for (let i = last; i > last - glowSquares; i--) {
+      ctx.globalAlpha = pulse * (1 - (last - i) / glowSquares);
+      ctx.lineWidth = widthAt(i) - 2;
+      ctx.beginPath();
+      ctx.moveTo(points[i].x, points[i].y);
+      ctx.lineTo(points[i - 1].x, points[i - 1].y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // 5) Swallowed food: a bulge with the food inside, sliding down the body
+  //    toward the tail (and fading out if the tail is cut off)
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  lumps.forEach(lump => {
-    if (lump.index < 1 || lump.index > last) return;   // under the head, or past the tail
-    const fade = 1 - (lump.index - 1 + between) / LUMP_SQUARES;
-    if (fade <= 0) return;
-    const p = points[lump.index];
-    const radius = Math.max(widthAt(lump.index) / 2, CELL * 0.3) * (1 + 0.6 * fade);
+  flows.forEach(f => {
+    const pos = f.fading !== undefined ? last : Math.min(f.age * FLOW_SPEED, last);
+    if (pos < 1) return;   // still under the head
+    const i = Math.floor(pos), frac = pos - i;
+    const a = points[i], b = points[Math.min(i + 1, last)];
+    const x = a.x + (b.x - a.x) * frac;
+    const y = a.y + (b.y - a.y) * frac;
+    const radius = Math.max(widthAt(i) / 2, CELL * 0.3) * 1.6;
+    ctx.globalAlpha = f.fading !== undefined ? Math.max(0, 1 - f.fading / FLOW_FADE) : 1;
     ctx.fillStyle = COLORS.snakeOutline;
-    circle(p.x, p.y, radius + 1.5);
+    circle(x, y, radius + 1.5);
     ctx.fillStyle = COLORS.snakeBody;
-    circle(p.x, p.y, radius);
-    ctx.globalAlpha = fade;
-    ctx.font = CELL * (0.45 + 0.3 * fade) + "px serif";
+    circle(x, y, radius);
+    ctx.font = CELL * 0.75 + "px serif";
     ctx.fillStyle = "#000";
-    ctx.fillText(lump.emoji, p.x, p.y + 1);
+    ctx.fillText(f.emoji, x, y + 1);
     ctx.globalAlpha = 1;
   });
 
-  // 5) Head: drawn facing right, then rotated to the direction of travel
+  // 6) Head: drawn facing right, then rotated to the direction of travel
   const head = points[0];
   ctx.save();
   ctx.translate(head.x, head.y);
@@ -775,40 +813,6 @@ function drawSnake(time) {
   });
 
   ctx.restore();
-}
-
-// Tail squares lost to a cactus or pill: they stay joined as a dark piece
-// of tail until their turn, then each turns blue/red, shrinks and fades
-function drawShed() {
-  const waiting = part => part.age < part.delay;
-  const center = part => [(part.x + 0.5) * CELL, (part.y + 0.5) * CELL];
-
-  // The waiting squares, joined like a piece of tail
-  ctx.lineCap = "round";
-  [[COLORS.snakeOutline, CELL * 0.4], [COLORS.snakeBody, CELL * 0.4 - 3]].forEach(([color, width]) => {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    shed.filter(waiting).forEach(part => {
-      const [x1, y1] = center(part);
-      const [x2, y2] = part.next ? center(part.next) : [x1, y1];
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-    });
-  });
-
-  // The squares whose turn has come: colored, shrinking and fading
-  shed.forEach(part => {
-    const [cx, cy] = center(part);
-    const t = (part.age - part.delay) / SHED_SECONDS;
-    if (t >= 0) {
-      ctx.globalAlpha = 1 - t;
-      ctx.fillStyle = part.color;
-      circle(cx, cy, CELL * 0.32 * (1 - t * 0.7));
-      ctx.globalAlpha = 1;
-    }
-  });
 }
 
 function drawParticles() {

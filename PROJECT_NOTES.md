@@ -29,6 +29,7 @@ Supabase database and shown as a live leaderboard.
 | `e81a059` Simpler database | Leaderboard stays one row per player, but each player's best is now worked out from `games`. Removed from `players`: `best_score`, `best_score_at`, `games_played`, `first_seen_at`, `last_played_at`; removed the sync trigger, its 2 helper functions and the old index. One new index. Score limit stays 397. Applied in Supabase on 2026-11-14. |
 | `4af21e1` Pill power-up | A blinking 💊 (blue ring) appears for 5 seconds each time the score passes a multiple of 20, on its own schedule alongside foods and cactus. Eating it shrinks the snake by 5 and keeps the score. Database score cap raised from 397 to 9999 (applied in Supabase on 2026-11-14). |
 | Swallow and dissolve animations | Eaten food and cactus show as a lump with a mini emoji that the snake slides over (fades after 5 squares). Squares lost to a cactus or pill dissolve one by one from the tail tip, red or blue. |
+| Flowing food, slow shrink, pill −10 | Swallowed food travels down the body to the tail and is absorbed (fades if the tail is cut off). Cactus and pill now shrink the snake for real, one square at a time over 3 seconds, with the tail glowing red/blue. Pill shrinks by 10 instead of 5. |
 
 ## How it works
 
@@ -85,10 +86,11 @@ Supabase database and shown as a live leaderboard.
 - One healthy and one junk food are on the board at all times.
 - Eating **either** one replaces **both** with a fresh pair in new random spots.
 - Eating shows confetti and a floating green "+2 🍎" / "+1 🍔"; the score number pops.
-- **Swallow animation:** a bulge with a small copy of the food inside appears in
-  the body. Real-snake style: the lump stays on the square where the food was
-  eaten while the snake slides forward over it, getting smaller and fainter, and
-  is gone after 5 squares (`LUMP_SQUARES`).
+- **Swallow animation:** the eaten food travels down the body as a bulge with the
+  emoji inside, sliding smoothly from head to tail at `FLOW_SPEED` (25 squares a
+  second, so about 1 second for a 25-square snake). At the tail it's absorbed
+  with a small puff. Several foods can travel at once. If the tail is shrinking
+  when a food reaches it (cactus or pill), that food fades out instead.
 
 #### 5. Cactus 🌵
 
@@ -98,10 +100,11 @@ Supabase database and shown as a live leaderboard.
 - Only one cactus at a time. Never placed within 2 squares of the snake's head.
 - Stays **8 seconds** (`CACTUS_SECONDS`), blinking during the last 2, then vanishes.
 - It does **not** move when food is eaten.
-- Eating it: **−5 points** and the snake **shrinks 5 squares**; green prickle
+- Eating it: **−5 points** at once, and the snake **shrinks 5 squares over
+  3 seconds** (see 6); green prickle
   burst, red floating "−5 🌵", small board jolt. The game continues.
-- The cactus is swallowed with the same lump animation (a tiny 🌵 inside), and
-  the lost tail squares dissolve in **red** (see 6).
+- The cactus travels down the body like food (a 🌵 in a bulge), and the tail
+  glows **red** while it shrinks.
 - If the score drops (e.g. 10 → 5), passing 10 again spawns another cactus.
 
 #### 5b. Pill 💊
@@ -112,26 +115,28 @@ Supabase database and shown as a live leaderboard.
 - Only one pill at a time. Never placed within 2 squares of the snake's head.
 - **Blinks the whole time** it's on the board, on a blue ring. Stays **5 seconds**
   (`PILL_SECONDS`), then vanishes. It does not move when food is eaten.
-- Eating it: the snake **shrinks 5 squares** (`PILL_SHRINK`), the **score stays
-  the same**; blue sparkle burst and a blue floating "−5 🐍 💊". The lost tail
-  squares dissolve in **blue** (see 6).
+- Eating it: the snake **shrinks 10 squares over 3 seconds** (`PILL_SHRINK`,
+  see 6), the **score stays the same**; blue sparkle burst and a blue floating
+  "−10 🐍 💊". The tail glows **blue** while it shrinks.
 - If the score drops below a multiple of 20 (via a cactus) and passes it again,
   another pill appears.
 
 #### 6. Growing and shrinking
 
-- The snake's length changes by the points of what it eats: +2, +1 or −5.
-  The pill is the exception: −5 squares with no change to the score.
+- Food grows the snake by its points: healthy +2, junk +1. A cactus shrinks it
+  by 5 (and takes 5 points); a pill shrinks it by 10 with no change to the score.
 - `growPending` holds squares still to grow: each move with `growPending > 0`
   keeps the tail (length +1) instead of dropping it, so +2 shows over 2 moves.
-- Shrinking takes squares off the tail immediately (pending growth is used up
-  first, so right after eating food a pill or cactus can remove fewer *visible*
-  squares; kept this way on purpose).
-- **Tail dissolve animation:** the lost squares stay on the board as a joined
-  piece of dark tail, then dissolve one by one from the tip (`SHED_GAP` = 0.08s
-  apart, each taking `SHED_SECONDS` = 0.35s): each turns blue (pill) or red
-  (cactus), shrinks and fades with a few sparkles. They're visual only: the
-  snake can't crash into them.
+- **Shrinking is real and gradual** (`shrink`, `startShrink`, `updateTimers`):
+  the squares come off the tail one at a time, evenly over `SHRINK_SECONDS`
+  (3 seconds). Pill: one every 0.3s; cactus: one every 0.6s. The tail you see
+  is the real snake, so you can still crash into it until it's gone.
+- **Shrink animation** (same for cactus and pill): while shrinking, the end of
+  the tail glows and pulses (blue for a pill, red for a cactus), the tip slides
+  in smoothly toward the next square, and a few sparkles pop as each square goes.
+- Growing and shrinking are independent: food eaten during a shrink still grows
+  the snake, and a second cactus/pill adds to the shrink (the remaining squares
+  are spread over a fresh 3 seconds).
 - The snake never gets shorter than 3 squares (`MIN_LENGTH`).
 
 #### 7. Score
@@ -179,10 +184,11 @@ auto-focus (so the keyboard doesn't cover the leaderboard).
 | `CACTUS_SECONDS` | 8 | How long a cactus stays |
 | `PILL_EVERY` | 20 | Pill appears each time the score passes a multiple of this |
 | `PILL_SECONDS` | 5 | How long a pill stays |
-| `PILL_SHRINK` | 5 | Squares the snake loses when it eats a pill |
+| `PILL_SHRINK` | 10 | Squares the snake loses when it eats a pill |
 | `MIN_LENGTH` | 3 | Shortest the snake can get |
-| `LUMP_SQUARES` | 5 | Squares a swallowed-food lump lasts |
-| `SHED_SECONDS`, `SHED_GAP` | 0.35, 0.08 | Tail dissolve: time per square, delay between squares |
+| `SHRINK_SECONDS` | 3 | A cactus or pill shrinks the snake gradually over this long |
+| `FLOW_SPEED` | 25 | Squares per second a swallowed food travels down the body |
+| `FLOW_FADE` | 0.3 | Seconds a swallowed food takes to fade if the tail is cut off |
 | `SWIPE_MIN` | 24 | Pixels a finger must move to count as a swipe |
 
 The database score cap (9999) is in `supabase/schema.sql`, in two places:
@@ -200,10 +206,10 @@ the `games_score_check` rule and `submit_score`.
 | `updateTimers(dt)` | Cactus and pill countdowns |
 | `crash()` / `showGameOver()` | Splash effects, save score, game-over screen |
 | `celebrate()` / `ouch()` / `healed()` | Effects for eating food / a cactus / a pill |
+| `startShrink(squares, color)` | Starts a gradual 3-second shrink |
 | `showHome()` / `loadLeaderboard()` | Home screen and Top 5 table |
 | `saveScore()` / `updateSaveStatus()` | Save to the database and show the result |
-| `loop()` / `draw()` / `drawItem()` / `drawSnake()` | Animation and drawing (`drawSnake` also draws the swallow lumps) |
-| `drawShed()` | The dissolving tail squares |
+| `loop()` / `draw()` / `drawItem()` / `drawSnake()` | Animation and drawing (`drawSnake` also draws the travelling food and the shrink glow) |
 | `turn()` + key/touch handlers | Controls |
 
 ### Database (Supabase)
@@ -222,6 +228,21 @@ the `games_score_check` rule and `submit_score`.
   serves both the leaderboard and the personal-best check.
 - If the database isn't configured or reachable, every `Database.*` call
   returns `null` and the game still plays, just without saving.
+
+### Versions (how to go back)
+
+| Version | Commit | What it is |
+|---|---|---|
+| `v1.0` | `6ff09e7` | Two foods, cactus, pill (−5), swallow lump and tail dissolve animations (before flowing food and slow shrink) |
+
+- To look at an old version: on GitHub open the commit (e.g. `6ff09e7`) and
+  click "Browse files".
+- To put the live game back to a version: ask Claude to **revert** `main` to
+  that commit (adds an "undo" commit, keeps history). GitHub Pages republishes
+  within a minute.
+- The `v1.0` git tag couldn't be pushed from the cloud session. To add it on
+  GitHub: Releases → "Draft a new release" → tag `v1.0`, target commit `6ff09e7`.
+- Database changes (SQL run in Supabase) are not undone by going back in git.
 
 ### Key facts to remember
 

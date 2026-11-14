@@ -13,9 +13,10 @@ Open `index.html` in any web browser.
   - **Junk** (🍔 🍕 🍟 🌭 🍩, orange ring): **+1 point**, grows 1 square
 - Each time your score passes a multiple of 5, a **cactus** 🌵 (red ring)
   appears for 8 seconds. Eating it costs **5 points** and shrinks the snake
-  by 5 squares (the score never goes below 0, the snake never below 3 squares)
+  by 5 squares over 3 seconds (the score never goes below 0, the snake never
+  below 3 squares)
 - Each time your score passes a multiple of 20, a blinking **pill** 💊 (blue
-  ring) appears for 5 seconds. Eating it shrinks the snake by 5 squares and
+  ring) appears for 5 seconds. Eating it shrinks the snake by 10 squares over 3 seconds and
   **keeps your score** (it comes on its own schedule, on top of the foods and cactus)
 - Hitting a wall or yourself ends the game
 - **Space** (or **tap** on a phone) plays again after game over
@@ -35,7 +36,7 @@ players (best score and the date it was set) plus the total games played.
 |---|---|
 | `index.html` | Page structure: title, score, board and messages |
 | `css/style.css` | Colors, layout and animations (score pop, board shake, game-over fade) |
-| `js/game.js` | Game logic and drawing: the cobra, food, crash splash, eat confetti, swallow lumps and dissolving tail; home screen and leaderboard |
+| `js/game.js` | Game logic and drawing: the cobra, food, crash splash, eat confetti, food travelling down the body and the shrinking tail; home screen and leaderboard |
 | `js/db.js` | Talks to the Supabase database |
 | `js/config.js` | Supabase URL and public key |
 | `supabase/schema.sql` | Database tables and functions |
