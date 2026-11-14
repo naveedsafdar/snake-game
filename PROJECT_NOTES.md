@@ -27,7 +27,7 @@ Supabase database and shown as a live leaderboard.
 | `254d909` Grow by points | The snake grows/shrinks by the points: healthy +2, junk +1, cactus −5. |
 | `13a2506`, `ede86d6` Live-site fixes | Leaderboard code worked with both database versions during the switch; `?v=` added to CSS/JS links so browsers load new files after an update. |
 | `e81a059` Simpler database | Leaderboard stays one row per player, but each player's best is now worked out from `games`. Removed from `players`: `best_score`, `best_score_at`, `games_played`, `first_seen_at`, `last_played_at`; removed the sync trigger, its 2 helper functions and the old index. One new index. Score limit stays 397. Applied in Supabase on 2026-11-14. |
-| Pill power-up | A blinking 💊 (blue ring) appears for 5 seconds each time the score passes a multiple of 20, on its own schedule alongside foods and cactus. Eating it shrinks the snake by 5 and keeps the score. Database score cap raised from 397 to 9999 (needs `schema.sql` run in Supabase). |
+| `4af21e1` Pill power-up | A blinking 💊 (blue ring) appears for 5 seconds each time the score passes a multiple of 20, on its own schedule alongside foods and cactus. Eating it shrinks the snake by 5 and keeps the score. Database score cap raised from 397 to 9999 (applied in Supabase on 2026-11-14). |
 
 ## How it works
 
