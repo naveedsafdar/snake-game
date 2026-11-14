@@ -73,6 +73,8 @@ Supabase database and shown as a live leaderboard.
   public. Never commit the secret / `service_role` key.
 - After changing `supabase/schema.sql`, re-run the whole file in the
   Supabase SQL Editor for it to take effect.
+- After changing any CSS/JS file, bump the `?v=` number on the links in
+  `index.html`, or browsers may keep running the old cached files.
 - Supabase JS is loaded from jsDelivr, pinned to `@supabase/supabase-js@2.45.4`.
 
 ## Ideas for next time
