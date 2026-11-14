@@ -35,7 +35,7 @@ players (best score and the date it was set) plus the total games played.
 |---|---|
 | `index.html` | Page structure: title, score, board and messages |
 | `css/style.css` | Colors, layout and animations (score pop, board shake, game-over fade) |
-| `js/game.js` | Game logic and drawing: the cobra, food, crash splash and eat confetti; home screen and leaderboard |
+| `js/game.js` | Game logic and drawing: the cobra, food, crash splash, eat confetti, swallow lumps and dissolving tail; home screen and leaderboard |
 | `js/db.js` | Talks to the Supabase database |
 | `js/config.js` | Supabase URL and public key |
 | `supabase/schema.sql` | Database tables and functions |
