@@ -113,6 +113,17 @@ canvas {
   background: var(--board);
 }
 
+/* Board gives a small jolt when a cactus is eaten (class added by game.js) */
+.board.nudge {
+  animation: nudge 0.25s ease-out;
+}
+
+@keyframes nudge {
+  0%, 100% { transform: translate(0, 0); }
+  30% { transform: translate(-3px, 1px); }
+  60% { transform: translate(3px, -1px); }
+}
+
 /* Board shakes on a crash (class added by game.js) */
 .board.shake {
   animation: shake 0.5s ease-out;
@@ -359,6 +370,17 @@ canvas {
 .game-help {
   color: var(--muted);
   font-size: 14px;
+  text-align: center;
+}
+
+.game-help p {
+  margin: 0;
+}
+
+/* Points for each kind of food */
+.game-help .game-rules {
+  margin-bottom: 4px;
+  font-weight: 600;
 }
 
 /* ----- Phones: tighter spacing so the home screen fits the smaller board ----- */

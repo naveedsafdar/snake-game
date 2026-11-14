@@ -9,8 +9,19 @@ const COLS = 20;        // squares across
 const ROWS = 20;        // squares down
 const STEP_MS = 110;    // time between snake moves in ms (lower = faster)
 
-// The foods that can appear. One is picked at random each time.
-const FOODS = ["🍎", "🍊", "🍔", "🍌", "🍇", "🍓", "🍕", "🍒", "🍉", "🍩"];
+// What can appear on the board: the emoji to pick from, points for eating it,
+// and the color of the glowing ring drawn behind it so it stands out
+const ITEMS = {
+  junk:    { emojis: ["🍔", "🍕", "🍟", "🌭", "🍩"], points: 1, glow: "#ff6d00" },
+  healthy: { emojis: ["🍎", "🍓", "🍒", "🍉", "🍇", "🍊", "🥝", "🍑"], points: 2, glow: "#43a047" },
+  cactus:  { emojis: ["🌵"], points: -5, glow: "#e53935" }
+};
+const FOOD_KINDS = ["junk", "healthy"];  // one of each is always on the board
+
+const CACTUS_EVERY = 5;     // a cactus appears each time the score passes a multiple of this
+const CACTUS_SECONDS = 8;   // how long a cactus stays if it isn't eaten
+const CACTUS_SHRINK = 2;    // squares lost off the tail when a cactus is eaten
+const MIN_LENGTH = 3;       // the snake never shrinks below this
 
 const COLORS = {
   tileLight: "#fffdf6",   // board checkerboard
@@ -22,7 +33,8 @@ const COLORS = {
   eye: "#f2b705",
   tongue: "#d32f2f",
   blood: ["#8e0000", "#b71c1c", "#d32f2f", "#e53935"],
-  confetti: ["#ffb300", "#43a047", "#e53935", "#1e88e5", "#8e24aa"]
+  confetti: ["#ffb300", "#43a047", "#e53935", "#1e88e5", "#8e24aa"],
+  prickles: ["#2e7d32", "#43a047", "#7cb342", "#d32f2f"]
 };
 
 // Arrow keys → direction of movement
@@ -59,7 +71,8 @@ const playerNameEl = document.getElementById("player-name");
 let snake;          // array of {x, y} grid squares; snake[0] is the head
 let direction;      // current direction {x, y}
 let nextDir;        // direction chosen by the player, used on the next move
-let food;           // {x, y, emoji}
+let foods;          // [junk, healthy]: each {x, y, kind, emoji} (null if the board is full)
+let cactus;         // {x, y, kind, emoji, timeLeft} or null
 let score;
 let state;          // "home" → "ready" → "playing" → "crashing" → "over"
 let player = { id: null, name: "" };  // who is playing (id comes from the database)
@@ -95,21 +108,49 @@ function resetGame() {
   popups = [];
   flash = 0;
 
-  placeFood();
+  foods = [];
+  cactus = null;
+  refillFoods();
   state = "ready";
   startScreen.classList.remove("hidden");
   gameOverScreen.classList.add("hidden");
 }
 
-// Put a random food on a random empty square
-function placeFood() {
-  do {
-    food = {
-      x: Math.floor(Math.random() * COLS),
-      y: Math.floor(Math.random() * ROWS),
-      emoji: pick(FOODS)
-    };
-  } while (snake.some(part => part.x === food.x && part.y === food.y));
+// Everything that can be eaten right now
+function itemsOnBoard() {
+  return foods.concat([cactus]).filter(Boolean);
+}
+
+// Make sure one junk food and one healthy food are on the board
+function refillFoods() {
+  FOOD_KINDS.forEach((kind, i) => {
+    if (!foods[i]) foods[i] = placeItem(kind);
+  });
+}
+
+// A new item of this kind on a random empty square (null if there's no room)
+function placeItem(kind) {
+  const head = snake[0];
+  const taken = snake.concat(itemsOnBoard());
+  const free = [];
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      if (taken.some(t => t.x === x && t.y === y)) continue;
+      // Don't drop a cactus right in front of the snake's face
+      if (kind === "cactus" && Math.abs(x - head.x) + Math.abs(y - head.y) < 3) continue;
+      free.push({ x, y });
+    }
+  }
+  if (free.length === 0) return null;
+
+  const cell = pick(free);
+  return { x: cell.x, y: cell.y, kind, emoji: pick(ITEMS[kind].emojis), timeLeft: CACTUS_SECONDS };
+}
+
+// Add (or take away) points; the score never goes below 0
+function changeScore(points) {
+  score = Math.max(0, score + points);
+  scoreEl.textContent = score;
 }
 
 // Move the snake one square
@@ -139,16 +180,41 @@ function step() {
   // Add the new head to the front
   snake.unshift(head);
 
-  if (head.x === food.x && head.y === food.y) {
-    // Ate the food: keep the tail so the snake grows
-    score++;
-    scoreEl.textContent = score;
-    celebrate(food);
-    placeFood();
-  } else {
+  const eaten = itemsOnBoard().find(item => item.x === head.x && item.y === head.y);
+
+  if (!eaten) {
     // Didn't eat: drop the tail so the length stays the same
     snake.pop();
+  } else if (eaten.kind === "cactus") {
+    // Ate the cactus: lose points, no growth, and the tail shrinks
+    cactus = null;
+    snake.pop();
+    for (let i = 0; i < CACTUS_SHRINK && snake.length > MIN_LENGTH; i++) snake.pop();
+    changeScore(ITEMS.cactus.points);
+    ouch(eaten);
+  } else {
+    // Ate food: keep the tail so the snake grows
+    foods[foods.indexOf(eaten)] = null;
+    const before = score;
+    changeScore(ITEMS[eaten.kind].points);
+    celebrate(eaten);
+
+    // A cactus appears each time the score passes a multiple of CACTUS_EVERY
+    // (healthy food is worth 2, so the score can jump past it, e.g. 4 → 6)
+    if (!cactus && Math.floor(score / CACTUS_EVERY) > Math.floor(before / CACTUS_EVERY)) {
+      cactus = placeItem("cactus");
+    }
   }
+
+  // Replace any food that was eaten (or couldn't fit before)
+  refillFoods();
+}
+
+// Count down the cactus timer; it disappears when time runs out
+function updateCactus(dt) {
+  if (!cactus) return;
+  cactus.timeLeft -= dt;
+  if (cactus.timeLeft <= 0) cactus = null;
 }
 
 // The snake crashed at pixel position (x, y)
@@ -218,10 +284,35 @@ function celebrate(eaten) {
     });
   }
 
-  // Floating "+1" showing the eaten food
-  popups.push({ x, y, age: 0, life: 0.9, text: "+1 " + eaten.emoji });
+  // Floating "+1" or "+2" showing the eaten food
+  const points = ITEMS[eaten.kind].points;
+  popups.push({ x, y, age: 0, life: 0.9, text: "+" + points + " " + eaten.emoji, color: "#2e7d32" });
 
   // Make the score number pop (see style.css)
+  restartAnimation(scoreEl, "pop");
+}
+
+// The snake ate a cactus: green prickles, a red "−5" and a small shake
+function ouch(eaten) {
+  const x = (eaten.x + 0.5) * CELL;
+  const y = (eaten.y + 0.5) * CELL;
+
+  for (let i = 0; i < 20; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 60 + Math.random() * 160;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      size: 1.5 + Math.random() * 2,
+      age: 0,
+      life: 0.5 + Math.random() * 0.3,
+      color: pick(COLORS.prickles)
+    });
+  }
+
+  popups.push({ x, y, age: 0, life: 1.1, text: "−5 " + eaten.emoji, color: "#d32f2f" });
+  restartAnimation(board, "nudge");
   restartAnimation(scoreEl, "pop");
 }
 
@@ -388,6 +479,7 @@ function loop(time) {
     lastStepTime = time;
     step();
   }
+  if (state === "playing") updateCactus(dt);
 
   updateEffects(dt);
   draw(time);
@@ -426,7 +518,7 @@ function updateEffects(dt) {
 function draw(time) {
   drawBoard();
   drawSplats();
-  drawFood(time);
+  itemsOnBoard().forEach(item => drawItem(item, time));
   drawSnake(time);
   drawParticles();
   drawPopups();
@@ -457,24 +549,39 @@ function drawSplats() {
   ctx.globalAlpha = 1;
 }
 
-// Food gently pulses so it's easy to spot
-function drawFood(time) {
-  const cx = (food.x + 0.5) * CELL;
-  const cy = (food.y + 0.5) * CELL;
+// Food (or a cactus) on a bright glowing ring, gently pulsing so it's easy to spot
+function drawItem(item, time) {
+  const cx = (item.x + 0.5) * CELL;
+  const cy = (item.y + 0.5) * CELL;
   const scale = 1 + 0.08 * Math.sin(time / 200);
-
-  // Soft shadow under the food
-  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-  ellipse(cx, cy + CELL * 0.4, CELL * 0.35, CELL * 0.12);
+  const glow = ITEMS[item.kind].glow;
 
   ctx.save();
+
+  // A cactus blinks during its last 2 seconds, as a warning it's about to go
+  if (item.kind === "cactus" && item.timeLeft < 2 && Math.floor(time / 150) % 2 === 0) {
+    ctx.globalAlpha = 0.35;
+  }
+
+  // Glowing ring: soft filled halo plus a solid outline
+  ctx.fillStyle = glow;
+  const halo = ctx.globalAlpha;
+  ctx.globalAlpha = halo * 0.45;
+  circle(cx, cy, CELL * 0.62 * scale);
+  ctx.globalAlpha = halo;
+  ctx.strokeStyle = glow;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, CELL * 0.58 * scale, 0, Math.PI * 2);
+  ctx.stroke();
+
   ctx.translate(cx, cy);
   ctx.scale(scale, scale);
   ctx.font = CELL + "px serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#000";   // solid color, so the emoji isn't drawn see-through
-  ctx.fillText(food.emoji, 0, 1);
+  ctx.fillText(item.emoji, 0, 1);
   ctx.restore();
 }
 
@@ -579,7 +686,7 @@ function drawPopups() {
     ctx.globalAlpha = 1 - p.age / p.life;
     ctx.strokeStyle = "#fff";
     ctx.strokeText(p.text, p.x, p.y - 12);
-    ctx.fillStyle = "#2e7d32";
+    ctx.fillStyle = p.color;
     ctx.fillText(p.text, p.x, p.y - 12);
   });
   ctx.globalAlpha = 1;

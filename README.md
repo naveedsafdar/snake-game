@@ -7,7 +7,12 @@ A classic Snake game in plain HTML, CSS and JavaScript. No install or build step
 Open `index.html` in any web browser.
 
 - **Arrow keys** (or **swipe** on a phone) move the snake; the first move starts the game
-- Eat the food (🍎 🍊 🍔 🍕 …) to grow and score points
+- Two foods are always on the board; eating either one makes you grow:
+  - **Healthy** (🍎 🍓 🍒 🍉 🍇 🍊 🥝 🍑, green ring): **+2 points**
+  - **Junk** (🍔 🍕 🍟 🌭 🍩, orange ring): **+1 point**
+- Each time your score passes a multiple of 5, a **cactus** 🌵 (red ring)
+  appears for 8 seconds. Eating it costs **5 points** and shrinks the snake
+  by 2 squares (the score never goes below 0)
 - Hitting a wall or yourself ends the game
 - **Space** (or **tap** on a phone) plays again after game over
 
@@ -33,3 +38,5 @@ plus the total games played.
 | `supabase/schema.sql` | Database tables and functions |
 
 To change the speed, edit `STEP_MS` at the top of `js/game.js` (lower is faster).
+The foods, their points and the cactus rules (`CACTUS_EVERY`, `CACTUS_SECONDS`,
+`CACTUS_SHRINK`) are set just below it.

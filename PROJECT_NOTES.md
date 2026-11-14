@@ -1,7 +1,7 @@
 # Snake Game: Project Notes
 
 A summary of what's been built so far, how it fits together, and ideas for
-next time. Last updated: 2026-11-13.
+next time. Last updated: 2026-11-14.
 
 ## What it is
 
@@ -18,6 +18,7 @@ Supabase database and shown as a live leaderboard.
 | `d0280d1` Swipe controls for phones | Swipe to turn, tap to replay after game over. Touch devices see touch-specific hints; page no longer scrolls/zooms while swiping; home screen fits small screens. |
 | `f24a03d` Keep player totals in sync | A database trigger recalculates each player's best score, its date and game count whenever a game row is inserted, edited or deleted, including hand edits in the Supabase dashboard. |
 | Top 5 scores (not players) | The leaderboard now lists the 5 highest single games, so one player can appear several times. Scores live only in `games`: the `best_score`, `best_score_at` and `games_played` columns, the sync trigger and its helper functions were removed. |
+| Two foods and a cactus | One junk food (+1) and one healthy food (+2) are always on the board, each with a bright colored ring; banana removed for visibility. A cactus (−5, shrinks the snake by 2) appears for 8 seconds each time the score passes a multiple of 5. Database score limit raised from 397 to 794. |
 
 ## How it works
 
@@ -41,7 +42,13 @@ Supabase database and shown as a live leaderboard.
 - Input: arrow keys or swipe (`SWIPE_MIN = 24px`); a long swipe can make
   several turns. Reversing into the body is blocked. Space or tap replays.
 - The player's name is remembered in the browser (`saveName` / `loadSavedName`).
-- Max score is 397 (a full board minus the starting snake).
+- Two foods are always on the board (`foods`): one junk (+1, orange ring) and
+  one healthy (+2, green ring). Eating one replaces only that one.
+- Cactus (`cactus`): appears when the score passes a multiple of 5, lasts
+  8 seconds (blinks in the last 2), never spawns right in front of the head.
+  Eating it: −5 points (floored at 0), no growth, tail shrinks by 2 (min length 3).
+- All food and cactus settings live in `ITEMS` and the `CACTUS_*` constants.
+- Max score is 794 (397 foods on a full board, all healthy at 2 points).
 
 ### Database (Supabase)
 

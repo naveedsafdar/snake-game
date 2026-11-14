@@ -25,9 +25,15 @@ create table if not exists public.players (
 create table if not exists public.games (
   id         bigint generated always as identity primary key,
   player_id  bigint not null references public.players (id) on delete cascade,
-  score      integer not null check (score between 0 and 397),  -- 397 = a full 20x20 board
+  score      integer not null check (score between 0 and 794),  -- 794 = a full 20x20 board of healthy food
   played_at  timestamptz not null default now()
 );
+
+-- Highest possible score: a full 20x20 board (397 foods) all healthy at
+-- 2 points each = 794. Older versions allowed only up to 397, so update
+-- the limit on an existing table too.
+alter table public.games drop constraint if exists games_score_check;
+alter table public.games add constraint games_score_check check (score between 0 and 794);
 
 -- Fast leaderboard (highest scores first)
 create index if not exists games_leaderboard_idx
@@ -110,7 +116,7 @@ as $$
 declare
   v_old_best integer;
 begin
-  if p_score is null or p_score < 0 or p_score > 397 then
+  if p_score is null or p_score < 0 or p_score > 794 then
     raise exception 'Invalid score';
   end if;
 
