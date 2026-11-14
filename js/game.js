@@ -193,8 +193,10 @@ function step() {
     changeScore(ITEMS.cactus.points);
     ouch(eaten);
   } else {
-    // Ate food: keep the tail so the snake grows
-    foods[foods.indexOf(eaten)] = null;
+    // Ate food: keep the tail so the snake grows.
+    // Both foods are cleared, and a fresh pair is placed below
+    // (the cactus, if any, stays where it is)
+    foods = [];
     const before = score;
     changeScore(ITEMS[eaten.kind].points);
     celebrate(eaten);
@@ -206,7 +208,7 @@ function step() {
     }
   }
 
-  // Replace any food that was eaten (or couldn't fit before)
+  // Place new foods where needed (after eating, or if they couldn't fit before)
   refillFoods();
 }
 

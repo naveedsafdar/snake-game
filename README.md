@@ -7,7 +7,8 @@ A classic Snake game in plain HTML, CSS and JavaScript. No install or build step
 Open `index.html` in any web browser.
 
 - **Arrow keys** (or **swipe** on a phone) move the snake; the first move starts the game
-- Two foods are always on the board; eating either one makes you grow:
+- Two foods are always on the board; eating either one makes you grow, and
+  both are then replaced by a fresh pair in new spots:
   - **Healthy** (🍎 🍓 🍒 🍉 🍇 🍊 🥝 🍑, green ring): **+2 points**
   - **Junk** (🍔 🍕 🍟 🌭 🍩, orange ring): **+1 point**
 - Each time your score passes a multiple of 5, a **cactus** 🌵 (red ring)

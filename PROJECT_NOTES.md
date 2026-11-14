@@ -43,7 +43,8 @@ Supabase database and shown as a live leaderboard.
   several turns. Reversing into the body is blocked. Space or tap replays.
 - The player's name is remembered in the browser (`saveName` / `loadSavedName`).
 - Two foods are always on the board (`foods`): one junk (+1, orange ring) and
-  one healthy (+2, green ring). Eating one replaces only that one.
+  one healthy (+2, green ring). Eating either one replaces both with a fresh
+  pair in new spots (the cactus stays put).
 - Cactus (`cactus`): appears when the score passes a multiple of 5, lasts
   8 seconds (blinks in the last 2), never spawns right in front of the head.
   Eating it: −5 points (floored at 0), no growth, tail shrinks by 2 (min length 3).
