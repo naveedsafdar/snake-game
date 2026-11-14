@@ -17,9 +17,9 @@ Supabase database and shown as a live leaderboard.
 | `3090e49` Player names, leaderboard and stats | New home screen where players enter a name. Finished games are saved to Supabase. The home screen shows the Top 5 (best score + date set) and total games played. Added `js/config.js`, `js/db.js`, `supabase/schema.sql`. |
 | `d0280d1` Swipe controls for phones | Swipe to turn, tap to replay after game over. Touch devices see touch-specific hints; page no longer scrolls/zooms while swiping; home screen fits small screens. |
 | `f24a03d` Keep player totals in sync | A database trigger recalculates each player's best score, its date and game count whenever a game row is inserted, edited or deleted, including hand edits in the Supabase dashboard. |
-| Top 5 scores (not players) | The leaderboard now lists the 5 highest single games, so one player can appear several times. Scores live only in `games`: the `best_score`, `best_score_at` and `games_played` columns, the sync trigger and its helper functions were removed. |
-| Two foods and a cactus | One junk food (+1) and one healthy food (+2) are always on the board, each with a bright colored ring; banana removed for visibility. A cactus (−5, shrinks the snake by 2) appears for 8 seconds each time the score passes a multiple of 5. Database score limit raised from 397 to 794. |
+| Two foods and a cactus | One junk food (+1) and one healthy food (+2) are always on the board, each with a bright colored ring; banana removed for visibility. A cactus (−5) appears for 8 seconds each time the score passes a multiple of 5. |
 | Fresh pair + grow by points | Eating either food replaces both with a fresh pair (cactus stays). The snake grows/shrinks by the points: healthy +2, junk +1, cactus −5. |
+| Simpler database | Leaderboard stays one row per player, but each player's best is now worked out from `games`. Removed from `players`: `best_score`, `best_score_at`, `games_played`, `first_seen_at`, `last_played_at`; removed the sync trigger, its 2 helper functions and the old index. One new index. Score limit stays 397. **Run `supabase/schema.sql` in Supabase to apply.** |
 
 ## How it works
 
@@ -32,7 +32,7 @@ Supabase database and shown as a live leaderboard.
 | `js/game.js` | All game logic and drawing (~730 lines) |
 | `js/db.js` | Small wrapper around Supabase RPC calls |
 | `js/config.js` | Supabase project URL and **publishable** key |
-| `supabase/schema.sql` | Tables, security, functions and trigger; run once in the Supabase SQL Editor (safe to re-run) |
+| `supabase/schema.sql` | Tables, security and functions; run once in the Supabase SQL Editor (safe to re-run) |
 
 ### Game (`js/game.js`)
 
@@ -53,22 +53,22 @@ Supabase database and shown as a live leaderboard.
   healthy +2 squares, junk +1, cactus −5. Growth is added one square per move.
 - All food and cactus settings live in `ITEMS` and the `CACTUS_*` constants.
 - Max possible score is 397 (length grows with points, and the board has
-  400 squares). The database allows up to 794, which leaves headroom.
+  400 squares), which matches the database limit.
 
 ### Database (Supabase)
 
-- **Tables:** `players` (name, case/space-insensitive unique `name_key`,
-  first seen / last played) and `games` (one row per finished game; the
-  only place scores are kept).
+- **Tables:** `players` (`id`, `name`, and `name_key`: the name lowercased and
+  trimmed, unique) and `games` (`id`, `player_id`, `score`, `played_at`; the
+  only place scores are kept). No triggers.
 - **Security:** Row Level Security is on with **no policies**, so the public
   key can't touch tables directly. The page can only call four
   `security definer` functions:
   - `register_player(name)` → player id (creates or finds the player)
   - `submit_score(player_id, score)` → true if new personal best (checked against the player's past games)
-  - `get_leaderboard(limit)` → top single games with player name (ties go to whoever got there first)
+  - `get_leaderboard(limit)` → top players, one row each: best score and the date it was set, worked out from `games` (ties go to whoever got there first)
   - `get_stats()` → total games and players
-- **Indexes:** `games_leaderboard_idx` (leaderboard sort) and
-  `games_player_score_idx` (personal-best check).
+- **Index:** `games_player_best_idx` on `games (player_id, score desc, played_at)`
+  serves both the leaderboard and the personal-best check.
 - If the database isn't configured or reachable, every `Database.*` call
   returns `null` and the game still plays, just without saving.
 

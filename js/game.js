@@ -380,7 +380,7 @@ nameForm.addEventListener("submit", async event => {
 
 homeButton.addEventListener("click", showHome);
 
-// Fill in the Top 5 scores table and the stats line
+// Fill in the Top 5 table and the stats line
 async function loadLeaderboard() {
   if (!Database.isReady()) {
     showLeaderboardMessage("Leaderboard isn't connected yet.");
@@ -399,11 +399,8 @@ async function loadLeaderboard() {
   } else if (rows.length === 0) {
     showLeaderboardMessage("No scores yet. Be the first!");
   } else {
-    // Older databases return best_score / best_score_at (one row per player);
-    // the current schema.sql returns score / played_at (one row per game)
     leaderboardBody.replaceChildren(...rows.map((row, i) =>
-      tableRow([i + 1, row.name, row.score ?? row.best_score,
-                formatDate(row.played_at ?? row.best_score_at)])
+      tableRow([i + 1, row.name, row.best_score, formatDate(row.best_score_at)])
     ));
   }
 
