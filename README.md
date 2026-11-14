@@ -24,8 +24,10 @@ Open `index.html` in any web browser.
 ## Leaderboard
 
 Players enter a name on the home screen. Every finished game is saved to a
-[Supabase](https://supabase.com) database, and the home screen shows the top 5
-players (best score and the date it was set) plus the total games played.
+[Supabase](https://supabase.com) database, and the home screen shows the top 3
+on a gold, silver and bronze podium with dancing snakes, then every other
+player (best score and the date it was set) in a list you can scroll, plus the
+total games played.
 
 - `supabase/schema.sql` creates the tables and functions (run it once in the Supabase SQL Editor)
 - `js/config.js` holds the project URL and the public (publishable) key

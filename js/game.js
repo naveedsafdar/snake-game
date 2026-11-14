@@ -26,6 +26,7 @@ const PILL_EVERY = 20;      // a pill appears each time the score passes a multi
 const PILL_SECONDS = 5;     // how long a pill stays if it isn't eaten
 const PILL_SHRINK = 10;     // squares the snake loses when it eats a pill
 const MIN_LENGTH = 3;       // the snake never shrinks below this
+const LEADERBOARD_LIMIT = 1000;   // players shown on the home screen (all of them, scrollable)
 
 const SHRINK_SECONDS = 3;   // a cactus or pill shrinks the snake gradually over this long
 const FLOW_SPEED = 25;      // swallowed food travels down the body this many squares a second
@@ -71,7 +72,8 @@ const nameForm = document.getElementById("name-form");
 const nameInput = document.getElementById("name-input");
 const playButton = document.getElementById("play-button");
 const formMessage = document.getElementById("form-message");
-const leaderboardBody = document.getElementById("leaderboard-body");
+const podiumEl = document.getElementById("podium");
+const rankingEl = document.getElementById("ranking");
 const statsEl = document.getElementById("stats");
 const playerLabel = document.getElementById("player-label");
 const playerNameEl = document.getElementById("player-name");
@@ -444,7 +446,7 @@ nameForm.addEventListener("submit", async event => {
 
 homeButton.addEventListener("click", showHome);
 
-// Fill in the Top 5 table and the stats line
+// Fill in the leaderboard (podium + list of everyone else) and the stats line
 async function loadLeaderboard() {
   if (!Database.isReady()) {
     showLeaderboardMessage("Leaderboard isn't connected yet.");
@@ -454,7 +456,7 @@ async function loadLeaderboard() {
 
   showLeaderboardMessage("Loading…");
   const [rows, stats] = await Promise.all([
-    Database.getLeaderboard(5),
+    Database.getLeaderboard(LEADERBOARD_LIMIT),
     Database.getStats()
   ]);
 
@@ -463,9 +465,8 @@ async function loadLeaderboard() {
   } else if (rows.length === 0) {
     showLeaderboardMessage("No scores yet. Be the first!");
   } else {
-    leaderboardBody.replaceChildren(...rows.map((row, i) =>
-      tableRow([i + 1, row.name, row.best_score, formatDate(row.best_score_at)])
-    ));
+    showPodium(rows.slice(0, 3));
+    rankingEl.replaceChildren(...rows.slice(3).map((row, i) => rankingRow(i + 4, row)));
   }
 
   statsEl.textContent = stats
@@ -473,26 +474,103 @@ async function loadLeaderboard() {
     : "";
 }
 
-// One table row. textContent (not innerHTML) so a name can't inject HTML.
-function tableRow(values) {
-  const tr = document.createElement("tr");
-  values.forEach(value => {
-    const td = document.createElement("td");
-    td.textContent = value;
-    tr.appendChild(td);
-  });
-  return tr;
+// Top 3 on the podium, arranged 2nd · 1st · 3rd, each with a dancing snake
+function showPodium(top) {
+  const places = [
+    { rank: 2, metal: "silver", dance: "sway" },
+    { rank: 1, metal: "gold", dance: "jump" },
+    { rank: 3, metal: "bronze", dance: "wiggle" }
+  ];
+  podiumEl.replaceChildren(...places.map(place => {
+    const row = top[place.rank - 1];
+    const spot = document.createElement("div");
+    spot.className = `spot place-${place.rank} ${place.metal}`;
+    if (!row) {
+      spot.classList.add("empty");   // fewer than 3 players so far
+    } else {
+      const dancer = document.createElement("div");
+      dancer.className = "dancer";
+      dancer.innerHTML = dancingSnake(place.metal, place.dance);   // fixed markup, no player data
+
+      const name = document.createElement("div");
+      name.className = "podium-name";
+      name.textContent = row.name;   // textContent, so a name can't inject HTML
+      name.title = row.name;
+
+      const score = document.createElement("div");
+      score.className = "podium-score";
+      score.textContent = row.best_score;
+      score.title = formatDate(row.best_score_at);
+
+      spot.append(dancer, name, score);
+    }
+    const block = document.createElement("div");
+    block.className = "podium-block";
+    block.textContent = place.rank;
+    spot.append(block);
+    return spot;
+  }));
+  podiumEl.classList.remove("hidden");
 }
 
-// A single full-width row such as "Loading…"
+// A little coiled snake in gold, silver or bronze, with a party hat.
+// The CSS classes on it (see style.css) make it dance.
+function dancingSnake(metal, dance) {
+  const id = "metal-" + metal;
+  return `<svg viewBox="0 0 60 64" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" class="m1"/><stop offset=".5" class="m2"/><stop offset="1" class="m3"/>
+    </linearGradient></defs>
+    <g class="dance ${dance}">
+      <ellipse cx="30" cy="55" rx="17" ry="6.5" fill="none" stroke="url(#${id})" stroke-width="7"/>
+      <ellipse cx="30" cy="55" rx="17" ry="6.5" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="1"/>
+      <path d="M30 52 C 16 44, 44 34, 30 22" fill="none" stroke="url(#${id})" stroke-width="8" stroke-linecap="round"/>
+      <path d="M30 52 C 16 44, 44 34, 30 22" fill="none" stroke="rgba(0,0,0,.18)" stroke-width="1" stroke-dasharray="2 4"/>
+      <g class="nod">
+        <ellipse cx="30" cy="17" rx="10.5" ry="9" fill="url(#${id})" stroke="rgba(0,0,0,.25)"/>
+        <circle cx="26" cy="15" r="3.2" fill="#fff"/><circle cx="34" cy="15" r="3.2" fill="#fff"/>
+        <circle cx="26.6" cy="15.4" r="1.8" fill="#1c1e20"/><circle cx="34.6" cy="15.4" r="1.8" fill="#1c1e20"/>
+        <path d="M26 21 Q30 24 34 21" stroke="#5a3a1a" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+        <path class="tongue" d="M30 25 L30 29 M30 29 L28 31.5 M30 29 L32 31.5" stroke="#d32f2f" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M24 9 L30 1 L36 9 Z" fill="#e53935"/><circle cx="30" cy="1.5" r="1.8" fill="#ffeb3b"/>
+      </g>
+    </g>
+  </svg>`;
+}
+
+// One row of the list: rank, name, best score, date. The current player's
+// row is highlighted. textContent (not innerHTML) so a name can't inject HTML.
+function rankingRow(rank, row) {
+  const div = document.createElement("div");
+  div.className = "ranking-row";
+  div.style.setProperty("--i", rank - 4);   // rows slide in one after another
+  if (player.name && row.name.trim().toLowerCase() === player.name.trim().toLowerCase()) {
+    div.classList.add("me");
+  }
+  [rank, row.name, row.best_score, formatShortDate(row.best_score_at)].forEach((value, i) => {
+    const span = document.createElement("span");
+    span.textContent = value;
+    if (i === 1) span.title = row.name;
+    if (i === 3) span.title = formatDate(row.best_score_at);
+    div.appendChild(span);
+  });
+  return div;
+}
+
+// A message such as "Loading…" in place of the leaderboard
 function showLeaderboardMessage(text) {
-  const tr = document.createElement("tr");
-  tr.className = "message-row";
-  const td = document.createElement("td");
-  td.colSpan = 4;
-  td.textContent = text;
-  tr.appendChild(td);
-  leaderboardBody.replaceChildren(tr);
+  podiumEl.classList.add("hidden");
+  podiumEl.replaceChildren();
+  const p = document.createElement("p");
+  p.className = "ranking-message";
+  p.textContent = text;
+  rankingEl.replaceChildren(p);
+}
+
+// e.g. "14 Nov" (the list is narrow; the full date shows on hover)
+function formatShortDate(isoDate) {
+  if (!isoDate) return "";
+  return new Date(isoDate).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 // e.g. "13 Nov 2026"

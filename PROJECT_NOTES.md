@@ -31,6 +31,7 @@ Supabase database and shown as a live leaderboard.
 | Swallow and dissolve animations | Eaten food and cactus show as a lump with a mini emoji that the snake slides over (fades after 5 squares). Squares lost to a cactus or pill dissolve one by one from the tail tip, red or blue. |
 | Flowing food, slow shrink, pill −10 | Swallowed food travels down the body to the tail and is absorbed (fades if the tail is cut off). Cactus and pill now shrink the snake for real, one square at a time over 3 seconds, with the tail glowing red/blue. Pill shrinks by 10 instead of 5. |
 | Red shrink for the pill | The pill's shrink glow and sparkles are now red, the same as the cactus (its ring and popup stay blue). |
+| Podium leaderboard | Home screen shows the top 3 on a gold/silver/bronze podium with dancing snakes (each its own dance, 1st jumps), medal-coloured names and a shine sweep; every other player is in a list that scrolls inside the board, with the current player highlighted. Database list cap raised from 50 to 1000 (run `schema.sql` in Supabase once there are more than 50 players). |
 
 ## How it works
 
@@ -53,7 +54,7 @@ Supabase database and shown as a live leaderboard.
 
 | State | What the player sees | How it moves on |
 |---|---|---|
-| `home` | Name box, 🏆 Top 5 leaderboard, "Games played · Players" line | Type a name (1–20 chars) and press Play / Enter → the player is registered in the database (`register_player`) and the name is remembered in the browser (`localStorage` key `snakePlayerName`) |
+| `home` | Name box, leaderboard (top 3 on a podium with dancing snakes, then every other player in a scrolling list, your own row highlighted), "Games played · Players" line | Type a name (1–20 chars) and press Play / Enter → the player is registered in the database (`register_player`) and the name is remembered in the browser (`localStorage` key `snakePlayerName`) |
 | `ready` | Board with the snake and foods, "Press an arrow key to start" / "Swipe to start" | The first arrow key or swipe starts the game in that direction |
 | `playing` | Snake moving, live score in the header | Hitting a wall or its own body → `crashing` |
 | `crashing` | Blood splash, red flash, board shake (1.2 seconds); the score is saved in the background | Automatically → `over` |
@@ -208,7 +209,8 @@ the `games_score_check` rule and `submit_score`.
 | `crash()` / `showGameOver()` | Splash effects, save score, game-over screen |
 | `celebrate()` / `ouch()` / `healed()` | Effects for eating food / a cactus / a pill |
 | `startShrink(squares, color)` | Starts a gradual 3-second shrink |
-| `showHome()` / `loadLeaderboard()` | Home screen and Top 5 table |
+| `showHome()` / `loadLeaderboard()` | Home screen and leaderboard |
+| `showPodium()` / `dancingSnake()` / `rankingRow()` | Top 3 podium with dancing snakes, and the scrolling list rows |
 | `saveScore()` / `updateSaveStatus()` | Save to the database and show the result |
 | `loop()` / `draw()` / `drawItem()` / `drawSnake()` | Animation and drawing (`drawSnake` also draws the travelling food and the shrink glow) |
 | `turn()` + key/touch handlers | Controls |
@@ -223,7 +225,7 @@ the `games_score_check` rule and `submit_score`.
   `security definer` functions:
   - `register_player(name)` → player id (creates or finds the player)
   - `submit_score(player_id, score)` → true if new personal best (checked against the player's past games)
-  - `get_leaderboard(limit)` → top players, one row each: best score and the date it was set, worked out from `games` (ties go to whoever got there first)
+  - `get_leaderboard(limit)` → players by best score, one row each (up to 1000): best score and the date it was set, worked out from `games` (ties go to whoever got there first)
   - `get_stats()` → total games and players
 - **Index:** `games_player_best_idx` on `games (player_id, score desc, played_at)`
   serves both the leaderboard and the personal-best check.

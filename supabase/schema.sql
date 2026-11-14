@@ -156,7 +156,7 @@ as $$
     order by g.player_id, g.score desc, g.played_at asc
   ) best
   order by best_score desc, best_score_at asc
-  limit least(greatest(p_limit, 1), 50);
+  limit least(greatest(p_limit, 1), 1000);   -- the home screen lists every player
 $$;
 
 -- Totals shown on the home screen.

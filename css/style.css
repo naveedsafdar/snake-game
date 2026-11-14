@@ -237,9 +237,9 @@ canvas {
 
 /* ----- Home screen ----- */
 .overlay-home {
-  justify-content: center;
-  gap: 14px;
-  padding: 20px 24px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 16px 22px 10px;
   background: rgba(255, 253, 246, 0.94);
 }
 
@@ -302,61 +302,213 @@ canvas {
   font-size: 13px;
 }
 
-/* Leaderboard table */
+/* ----- Leaderboard: podium for the top 3, then a scrolling list ----- */
 .leaderboard {
   width: 100%;
+  flex: 1;
+  min-height: 0;              /* lets the list scroll inside the board */
+  display: flex;
+  flex-direction: column;
 }
 
-.leaderboard h2 {
-  margin: 0 0 6px;
-  font-size: 18px;
+/* Medal colors (light, mid, dark) used by the podium, names and snakes */
+.gold   { --m1: #fff3b0; --m2: #f5c542; --m3: #b8860b; }
+.silver { --m1: #ffffff; --m2: #cfd6dd; --m3: #6f7b86; --name-mid: #a3adb7; }   /* darker name, easier to read */
+.bronze { --m1: #ffd9b8; --m2: #d98e4f; --m3: #8a4b20; }
+
+.podium {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  height: 158px;
+  padding-top: 8px;
 }
 
-.leaderboard table {
+.podium.hidden {
+  display: none;
+}
+
+.spot {
+  width: 31%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.spot.empty .podium-block {
+  opacity: 0.35;
+}
+
+/* The dancing snake (drawn by dancingSnake() in game.js) */
+.dancer {
+  width: 50px;
+  height: 54px;
+  margin-bottom: -2px;
+  animation: pop-in 0.5s 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.place-1 .dancer {
+  width: 60px;
+  height: 64px;
+  animation-delay: 0.6s;
+}
+
+.dancer svg {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+  height: 100%;
+  overflow: visible;
 }
 
-.leaderboard th,
-.leaderboard td {
-  padding: 5px 6px;
-  text-align: left;
-  border-bottom: 1px solid #e6ece0;
+.dancer .m1 { stop-color: var(--m1); }
+.dancer .m2 { stop-color: var(--m2); }
+.dancer .m3 { stop-color: var(--m3); }
+
+.dancer g {
+  transform-box: fill-box;
 }
 
-.leaderboard th {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+.dance {
+  transform-origin: 50% 100%;
 }
 
-/* Keep long names on one line, cut off with "…" */
-.leaderboard td:nth-child(2) {
-  max-width: 140px;
+.dance.jump   { animation: dance-jump 0.9s ease-in-out infinite; }
+.dance.sway   { animation: dance-sway 0.7s ease-in-out infinite alternate; }
+.dance.wiggle { animation: dance-sway 0.45s ease-in-out infinite alternate; }
+
+.nod {
+  transform-origin: 50% 90%;
+  animation: dance-nod 0.35s ease-in-out infinite alternate;
+}
+
+.tongue {
+  animation: tongue-flick 0.5s steps(2) infinite;
+}
+
+/* Names in medal colors */
+.podium-name {
+  max-width: 100%;
+  padding: 0 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  background: linear-gradient(90deg, var(--m3), var(--name-mid, var(--m2)) 45%, var(--m3));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.leaderboard td:nth-child(3) {
+.place-1 .podium-name {
+  font-size: 15px;
+}
+
+.podium-score {
+  margin-bottom: 3px;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
-.leaderboard td:nth-child(4) {
-  color: var(--muted);
-  white-space: nowrap;
+/* The podium blocks: metallic, rising up, with a shine sweeping across */
+.podium-block {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(135deg, var(--m1) 0%, var(--m2) 45%, var(--m3) 100%);
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.12);
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 22px;
+  font-weight: 900;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transform-origin: bottom;
+  animation: rise 0.6s ease-out both;
 }
 
-/* "Loading…" / "No scores yet" row */
-.leaderboard .message-row td {
+.place-1 .podium-block { height: 52px; animation-delay: 0.25s; }
+.place-2 .podium-block { height: 38px; animation-delay: 0.1s; }
+.place-3 .podium-block { height: 28px; }
+
+.podium-block::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  bottom: -50%;
+  left: -60%;
+  width: 40%;
+  transform: rotate(20deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+  animation: shine 2.4s ease-in-out 0.9s infinite;
+}
+
+/* Everyone else: a list that scrolls inside the board */
+.ranking {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;        /* allow scrolling the list on phones */
+  scrollbar-width: thin;
+  scrollbar-color: #c9d6c0 transparent;
+}
+
+.ranking-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 46px 62px;
+  align-items: center;
+  padding: 5px 6px;
+  border-bottom: 1px solid #e6ece0;
+  font-size: 13px;
+  text-align: left;
+  animation: slide-in 0.35s ease-out both;
+}
+
+.ranking-row:nth-child(-n+8) { animation-delay: calc(0.9s + var(--i, 0) * 0.06s); }
+
+.ranking-row span:nth-child(1) { color: var(--muted); font-weight: 700; }
+.ranking-row span:nth-child(2) { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-row span:nth-child(3) { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ranking-row span:nth-child(4) { color: var(--muted); font-size: 12px; text-align: right; white-space: nowrap; }
+
+/* The current player's row */
+.ranking-row.me {
+  background: #eef6e8;
+  border-radius: 6px;
+}
+
+/* "Loading…" / "No scores yet" */
+.ranking-message {
+  margin: 12px 0;
   color: var(--muted);
-  text-align: center;
-  font-weight: 400;
+  font-size: 14px;
+}
+
+@keyframes rise        { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes pop-in      { from { opacity: 0; transform: scale(0.2); } to { opacity: 1; transform: scale(1); } }
+@keyframes shine       { 0% { left: -60%; } 55%, 100% { left: 130%; } }
+@keyframes slide-in    { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes dance-sway  { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+@keyframes dance-nod   { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+@keyframes tongue-flick { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes dance-jump {
+  0%, 50%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-8px) rotate(-10deg); }
+  75% { transform: translateY(-8px) rotate(10deg); }
+}
+
+/* People who prefer less motion get a still podium */
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard *,
+  .leaderboard *::after {
+    animation: none !important;
+  }
 }
 
 .stats {
@@ -419,22 +571,24 @@ canvas {
     min-height: 0;
   }
 
-  .leaderboard h2 {
-    font-size: 16px;
-    margin-bottom: 2px;
+  .podium {
+    height: 120px;
+    padding-top: 4px;
   }
 
-  .leaderboard table {
-    font-size: 13px;
-  }
+  .dancer { width: 38px; height: 41px; }
+  .place-1 .dancer { width: 46px; height: 49px; }
+  .place-1 .podium-block { height: 40px; }
+  .place-2 .podium-block { height: 30px; }
+  .place-3 .podium-block { height: 22px; }
+  .podium-block { font-size: 18px; }
+  .podium-name { font-size: 12px; }
+  .place-1 .podium-name { font-size: 13px; }
 
-  .leaderboard th,
-  .leaderboard td {
-    padding: 3px 4px;
-  }
-
-  .leaderboard td:nth-child(2) {
-    max-width: 100px;
+  .ranking-row {
+    grid-template-columns: 26px 1fr 40px 54px;
+    padding: 4px;
+    font-size: 12px;
   }
 
   .overlay-game-over h2 {

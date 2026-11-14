@@ -30,8 +30,9 @@ const Database = {
     return call("submit_score", { p_player_id: playerId, p_score: score });
   },
 
-  // Top players, one row each: [{ name, best_score, best_score_at }, ...] or null
-  async getLeaderboard(limit = 5) {
+  // Players by best score, one row each (all of them, up to `limit`):
+  // [{ name, best_score, best_score_at }, ...] or null
+  async getLeaderboard(limit = 1000) {
     return call("get_leaderboard", { p_limit: limit });
   },
 

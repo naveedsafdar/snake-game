@@ -7,7 +7,7 @@
   <title>Snake</title>
 
   <!-- All styling lives in the CSS file -->
-  <link rel="stylesheet" href="css/style.css?v=9">
+  <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
   <main class="game">
@@ -36,14 +36,11 @@
           <p class="form-message" id="form-message"></p>
         </form>
 
-        <section class="leaderboard">
-          <h2>🏆 Top 5</h2>
-          <table>
-            <thead>
-              <tr><th>#</th><th>Player</th><th>Score</th><th>Date</th></tr>
-            </thead>
-            <tbody id="leaderboard-body"></tbody>
-          </table>
+        <!-- Leaderboard: top 3 on a podium with dancing snakes, then every
+             other player in a list that scrolls (filled in by game.js) -->
+        <section class="leaderboard" aria-label="Leaderboard">
+          <div class="podium hidden" id="podium"></div>
+          <div class="ranking" id="ranking"></div>
         </section>
 
         <p class="stats" id="stats"></p>
@@ -75,8 +72,8 @@
 
   <!-- Our scripts: settings, database helpers, then the game.
        Bump ?v= on all files after each change so browsers load the new versions. -->
-  <script src="js/config.js?v=9"></script>
-  <script src="js/db.js?v=9"></script>
-  <script src="js/game.js?v=9"></script>
+  <script src="js/config.js?v=10"></script>
+  <script src="js/db.js?v=10"></script>
+  <script src="js/game.js?v=10"></script>
 </body>
 </html>
