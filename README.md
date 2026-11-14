@@ -9,11 +9,11 @@ Open `index.html` in any web browser.
 - **Arrow keys** (or **swipe** on a phone) move the snake; the first move starts the game
 - Two foods are always on the board; eating either one makes you grow, and
   both are then replaced by a fresh pair in new spots:
-  - **Healthy** (🍎 🍓 🍒 🍉 🍇 🍊 🥝 🍑, green ring): **+2 points**
-  - **Junk** (🍔 🍕 🍟 🌭 🍩, orange ring): **+1 point**
+  - **Healthy** (🍎 🍓 🍒 🍉 🍇 🍊 🥝 🍑, green ring): **+2 points**, grows 2 squares
+  - **Junk** (🍔 🍕 🍟 🌭 🍩, orange ring): **+1 point**, grows 1 square
 - Each time your score passes a multiple of 5, a **cactus** 🌵 (red ring)
   appears for 8 seconds. Eating it costs **5 points** and shrinks the snake
-  by 2 squares (the score never goes below 0)
+  by 5 squares (the score never goes below 0, the snake never below 3 squares)
 - Hitting a wall or yourself ends the game
 - **Space** (or **tap** on a phone) plays again after game over
 
@@ -39,5 +39,5 @@ plus the total games played.
 | `supabase/schema.sql` | Database tables and functions |
 
 To change the speed, edit `STEP_MS` at the top of `js/game.js` (lower is faster).
-The foods, their points and the cactus rules (`CACTUS_EVERY`, `CACTUS_SECONDS`,
-`CACTUS_SHRINK`) are set just below it.
+The foods, their points and the cactus rules (`CACTUS_EVERY`, `CACTUS_SECONDS`)
+are set just below it. The snake grows or shrinks by the same number as the points.

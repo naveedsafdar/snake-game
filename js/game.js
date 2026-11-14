@@ -9,7 +9,8 @@ const COLS = 20;        // squares across
 const ROWS = 20;        // squares down
 const STEP_MS = 110;    // time between snake moves in ms (lower = faster)
 
-// What can appear on the board: the emoji to pick from, points for eating it,
+// What can appear on the board: the emoji to pick from, points for eating it
+// (the snake also grows or shrinks by that many squares),
 // and the color of the glowing ring drawn behind it so it stands out
 const ITEMS = {
   junk:    { emojis: ["🍔", "🍕", "🍟", "🌭", "🍩"], points: 1, glow: "#ff6d00" },
@@ -20,7 +21,6 @@ const FOOD_KINDS = ["junk", "healthy"];  // one of each is always on the board
 
 const CACTUS_EVERY = 5;     // a cactus appears each time the score passes a multiple of this
 const CACTUS_SECONDS = 8;   // how long a cactus stays if it isn't eaten
-const CACTUS_SHRINK = 2;    // squares lost off the tail when a cactus is eaten
 const MIN_LENGTH = 3;       // the snake never shrinks below this
 
 const COLORS = {
@@ -74,6 +74,7 @@ let nextDir;        // direction chosen by the player, used on the next move
 let foods;          // [junk, healthy]: each {x, y, kind, emoji} (null if the board is full)
 let cactus;         // {x, y, kind, emoji, timeLeft} or null
 let score;
+let growPending;    // squares still to grow (one is added per move, from the tail)
 let state;          // "home" → "ready" → "playing" → "crashing" → "over"
 let player = { id: null, name: "" };  // who is playing (id comes from the database)
 let saveResult = "";                  // how saving the last score went (see updateSaveStatus)
@@ -101,6 +102,7 @@ function resetGame() {
   direction = { x: 1, y: 0 };
   nextDir = direction;
   score = 0;
+  growPending = 0;
   scoreEl.textContent = "0";
 
   particles = [];
@@ -182,20 +184,17 @@ function step() {
 
   const eaten = itemsOnBoard().find(item => item.x === head.x && item.y === head.y);
 
-  if (!eaten) {
-    // Didn't eat: drop the tail so the length stays the same
-    snake.pop();
-  } else if (eaten.kind === "cactus") {
-    // Ate the cactus: lose points, no growth, and the tail shrinks
+  if (eaten && eaten.kind === "cactus") {
+    // Ate the cactus: lose points, and the snake shrinks by the same amount
     cactus = null;
-    snake.pop();
-    for (let i = 0; i < CACTUS_SHRINK && snake.length > MIN_LENGTH; i++) snake.pop();
+    growPending += ITEMS.cactus.points;
     changeScore(ITEMS.cactus.points);
     ouch(eaten);
-  } else {
-    // Ate food: keep the tail so the snake grows.
+  } else if (eaten) {
+    // Ate food: the snake grows by as many squares as the points (+1 or +2).
     // Both foods are cleared, and a fresh pair is placed below
     // (the cactus, if any, stays where it is)
+    growPending += ITEMS[eaten.kind].points;
     foods = [];
     const before = score;
     changeScore(ITEMS[eaten.kind].points);
@@ -207,6 +206,19 @@ function step() {
       cactus = placeItem("cactus");
     }
   }
+
+  // Grow by keeping the tail (one square per move), otherwise drop it so
+  // the length stays the same. Shrinking drops extra squares off the tail.
+  if (growPending > 0) {
+    growPending--;
+  } else {
+    snake.pop();
+  }
+  while (growPending < 0 && snake.length > MIN_LENGTH) {
+    snake.pop();
+    growPending++;
+  }
+  growPending = Math.max(0, growPending);   // never shrink below MIN_LENGTH
 
   // Place new foods where needed (after eating, or if they couldn't fit before)
   refillFoods();
