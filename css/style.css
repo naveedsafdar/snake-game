@@ -238,9 +238,24 @@ canvas {
 /* ----- Home screen ----- */
 .overlay-home {
   justify-content: flex-start;
-  gap: 10px;
-  padding: 16px 22px 10px;
-  background: rgba(255, 253, 246, 0.94);
+  gap: 6px;
+  padding: 14px 22px 10px;
+  background: var(--board);   /* solid, so the game underneath doesn't show through */
+  isolation: isolate;         /* keeps the checkerboard below behind the content */
+}
+
+/* A faint checkerboard, matching the game board */
+.overlay-home::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(45deg, #f6f3e8 25%, transparent 25%, transparent 75%, #f6f3e8 75%),
+    linear-gradient(45deg, #f6f3e8 25%, transparent 25%, transparent 75%, #f6f3e8 75%);
+  background-size: 40px 40px;
+  background-position: 0 0, 20px 20px;
+  opacity: 0.55;
 }
 
 .name-form {
@@ -295,11 +310,15 @@ canvas {
   cursor: wait;
 }
 
+/* Only takes up space when there's a message to show */
 .form-message {
-  min-height: 1.2em;
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--danger);
   font-size: 13px;
+}
+
+.form-message:not(:empty) {
+  margin-top: 6px;
 }
 
 /* ----- Leaderboard: podium for the top 3, then a scrolling list ----- */
@@ -322,8 +341,6 @@ canvas {
   align-items: flex-end;
   justify-content: center;
   gap: 8px;
-  height: 158px;
-  padding-top: 8px;
 }
 
 .podium.hidden {
@@ -344,15 +361,15 @@ canvas {
 
 /* The dancing snake (drawn by dancingSnake() in game.js) */
 .dancer {
-  width: 50px;
-  height: 54px;
+  width: 62px;
+  height: 66px;
   margin-bottom: -2px;
   animation: pop-in 0.5s 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
 }
 
 .place-1 .dancer {
-  width: 60px;
-  height: 64px;
+  width: 76px;
+  height: 82px;
   animation-delay: 0.6s;
 }
 
@@ -394,7 +411,7 @@ canvas {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.3px;
   background: linear-gradient(90deg, var(--m3), var(--name-mid, var(--m2)) 45%, var(--m3));
@@ -404,7 +421,7 @@ canvas {
 }
 
 .place-1 .podium-name {
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .podium-score {
@@ -571,19 +588,15 @@ canvas {
     min-height: 0;
   }
 
-  .podium {
-    height: 120px;
-    padding-top: 4px;
-  }
-
-  .dancer { width: 38px; height: 41px; }
+  .dancer { width: 36px; height: 39px; }
   .place-1 .dancer { width: 46px; height: 49px; }
-  .place-1 .podium-block { height: 40px; }
-  .place-2 .podium-block { height: 30px; }
-  .place-3 .podium-block { height: 22px; }
-  .podium-block { font-size: 18px; }
+  .place-1 .podium-block { height: 32px; }
+  .place-2 .podium-block { height: 24px; }
+  .place-3 .podium-block { height: 18px; }
+  .podium-block { font-size: 16px; }
+  .podium-score { font-size: 10px; margin-bottom: 2px; }
   .podium-name { font-size: 12px; }
-  .place-1 .podium-name { font-size: 13px; }
+  .place-1 .podium-name { font-size: 14px; }
 
   .ranking-row {
     grid-template-columns: 26px 1fr 40px 54px;

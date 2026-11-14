@@ -32,6 +32,7 @@ Supabase database and shown as a live leaderboard.
 | Flowing food, slow shrink, pill −10 | Swallowed food travels down the body to the tail and is absorbed (fades if the tail is cut off). Cactus and pill now shrink the snake for real, one square at a time over 3 seconds, with the tail glowing red/blue. Pill shrinks by 10 instead of 5. |
 | Red shrink for the pill | The pill's shrink glow and sparkles are now red, the same as the cactus (its ring and popup stay blue). |
 | Podium leaderboard | Home screen shows the top 3 on a gold/silver/bronze podium with dancing snakes (each its own dance, 1st jumps), medal-coloured names and a shine sweep; every other player is in a list that scrolls inside the board, with the current player highlighted. Database list cap raised from 50 to 1000 (run `schema.sql` in Supabase once there are more than 50 players). |
+| Home screen polish | Solid home background with a faint checkerboard (the game no longer shows through), no empty gap under the name box, bigger podium snakes (smaller on phones so the list keeps room). |
 
 ## How it works
 
