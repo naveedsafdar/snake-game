@@ -288,6 +288,7 @@ function updateTimers(dt) {
 // The snake crashed at pixel position (x, y)
 function crash(x, y) {
   state = "crashing";
+  buzz("crash");
 
   // Red droplets flying out from the impact point
   for (let i = 0; i < 70; i++) {
@@ -334,6 +335,7 @@ function showGameOver() {
 
 // Small party when food is eaten
 function celebrate(eaten) {
+  buzz("eat");
   const x = (eaten.x + 0.5) * CELL;
   const y = (eaten.y + 0.5) * CELL;
 
@@ -379,6 +381,7 @@ function burst(x, y, colors, count = 20) {
 
 // The snake ate a pill: blue sparkles and a blue "−10 🐍" (the score doesn't change)
 function healed(eaten) {
+  buzz("shrink");
   const x = (eaten.x + 0.5) * CELL;
   const y = (eaten.y + 0.5) * CELL;
   burst(x, y, COLORS.sparkles);
@@ -387,6 +390,7 @@ function healed(eaten) {
 
 // The snake ate a cactus: green prickles, a red "−5" and a small shake
 function ouch(eaten) {
+  buzz("shrink");
   const x = (eaten.x + 0.5) * CELL;
   const y = (eaten.y + 0.5) * CELL;
   burst(x, y, COLORS.prickles);
@@ -932,6 +936,16 @@ function ellipse(x, y, rx, ry) {
   ctx.beginPath();
   ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
+}
+
+// In the iPhone app, ask the phone for a short vibration ("eat", "shrink" or
+// "crash"; see ios/Snake/SnakeApp.swift). Does nothing in a web browser.
+function buzz(kind) {
+  try {
+    window.webkit.messageHandlers.haptic.postMessage(kind);
+  } catch (e) {
+    // not running inside the iPhone app
+  }
 }
 
 // Random item from a list

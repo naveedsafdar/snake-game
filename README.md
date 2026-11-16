@@ -32,6 +32,12 @@ total games played.
 - `supabase/schema.sql` creates the tables and functions (run it once in the Supabase SQL Editor)
 - `js/config.js` holds the project URL and the public (publishable) key
 
+## iPhone app
+
+The `ios/` folder is an iPhone app (Xcode project) that runs this game full
+screen with its own icon and vibrations. See [`ios/README.md`](ios/README.md)
+for step-by-step instructions to put it on your iPhone.
+
 ## Files
 
 | File | What it does |

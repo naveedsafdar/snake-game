@@ -33,6 +33,7 @@ Supabase database and shown as a live leaderboard.
 | Red shrink for the pill | The pill's shrink glow and sparkles are now red, the same as the cactus (its ring and popup stay blue). |
 | Podium leaderboard | Home screen shows the top 3 on a gold/silver/bronze podium with dancing snakes (each its own dance, 1st jumps), medal-coloured names and a shine sweep; every other player is in a list that scrolls inside the board, with the current player highlighted. Database list cap raised from 50 to 1000 (run `schema.sql` in Supabase once there are more than 50 players). |
 | Home screen polish | Solid home background with a faint checkerboard (the game no longer shows through), no empty gap under the name box, bigger podium snakes (smaller on phones so the list keeps room). |
+| iPhone app (step 1) | `ios/` Xcode project that wraps the game in a full-screen web view, with the game packed inside (works offline; scores need internet), portrait only, no zoom/bounce, safe areas for the notch, a cobra app icon, and vibrations on eating, cactus/pill and crash (`buzz()` in game.js). For trying on your own iPhone with a free Apple ID. |
 
 ## How it works
 
@@ -46,6 +47,7 @@ Supabase database and shown as a live leaderboard.
 | `js/db.js` | Small wrapper around Supabase RPC calls |
 | `js/config.js` | Supabase project URL and **publishable** key |
 | `supabase/schema.sql` | Tables, security and functions; run once in the Supabase SQL Editor (safe to re-run) |
+| `ios/` | iPhone app: Xcode project (`Snake.xcodeproj`), `Snake/SnakeApp.swift` (full-screen web view + vibrations), `Snake/game.html` (the packed game), app icon, `build_web.py`, step-by-step `ios/README.md` |
 
 ### Game logic (`js/game.js`)
 
@@ -256,6 +258,9 @@ the `games_score_check` rule and `submit_score`.
   Supabase SQL Editor for it to take effect.
 - After changing any CSS/JS file, bump the `?v=` number on the links in
   `index.html`, or browsers may keep running the old cached files.
+- **iPhone app:** after changing the game, run `python3 ios/build_web.py` to
+  repack it into `ios/Snake/game.html`, then press ▶︎ in Xcode. With a free
+  Apple ID the app has to be re-run from Xcode every 7 days.
 - Supabase JS is loaded from jsDelivr, pinned to `@supabase/supabase-js@2.45.4`.
 
 ## Ideas for next time
